@@ -15,7 +15,7 @@
 
 /* === 关键：锁死整屏高度 === */
 html,body{
-    height:100dvh;
+    height: calc(var(--real-vh, 100dvh) * 100);;
     overflow:hidden;
 }
 
