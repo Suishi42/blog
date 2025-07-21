@@ -1,218 +1,196 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const contentContainer = document.getElementById('content-container');
-    const menuBtn   = document.querySelector('.menu');
-    const logo      = document.querySelector('.logo');
+:root {
+    --primary-color: #ff00ff; /* Magenta */
+    --secondary-color: #00f0ff; /* Cyan */
+    --tertiary-color: #dfff00; /* Lime Green */
+    --background-color: #1a1a1a;
+    --text-color: #f0f0f0;
+    --header-height: 60px;
+}
 
-    const articleFiles = ['article1.md', 'article2.md'];
-    let articles = [];
-    let currentArticleIndex = 0;
-    let isScrolling = false;
-    let lastWheelTime = 0;
+@keyframes background-pan {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
 
-    /* -------------- 解析 Front-Matter -------------- */
-    function parseFrontMatter(markdown) {
-        const fmMatch = markdown.match(/^---\s*\n([\s\S]*?)\n---\s*\n/);
-        if (!fmMatch) return { frontMatter: {}, body: markdown };
-        const body     = markdown.substring(fmMatch[0].length);
-        const frontMatter = {};
-        fmMatch[1].split('\n').forEach(line => {
-            const parts = line.split(':');
-            if (parts.length >= 2) {
-                frontMatter[parts[0].trim()] = parts.slice(1).join(':').trim();
-            }
-        });
-        return { frontMatter, body };
-    }
+body {
+    margin: 0;
+    font-family: 'Helvetica Neue', 'Arial', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: linear-gradient(120deg, var(--primary-color), var(--secondary-color), var(--tertiary-color), var(--primary-color));
+    background-size: 400% 400%;
+    animation: background-pan 15s ease infinite;
+    color: var(--text-color);
+    overflow: hidden;
+}
 
-    /* -------------- 文章加载 -------------- */
-    async function loadArticles() {
-        // 首页占位
-        articles.push({ isHomePage: true, title: 'Ximu的个人博客' });
+header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: var(--header-height);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    box-sizing: border-box;
+    background: rgba(26, 26, 26, 0.8);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    z-index: 100;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
 
-        const promises = articleFiles.map(async file => {
-            try {
-                const res = await fetch(`articles/${file}`);
-                if (!res.ok) throw new Error(res.statusText);
-                let markdown = await res.text();
-                const { frontMatter, body } = parseFrontMatter(markdown);
+.logo {
+    cursor: pointer;
+}
 
-                // 提取一级标题作为文章标题
-                const h1Match = body.match(/^#\s+(.*)/m);
-                let title = h1Match ? h1Match[1] : (frontMatter.title || file.replace('.md', ''));
-                let cleanBody = h1Match ? body.replace(/^#\s+.*\n?/m, '') : body;
+.logo polygon {
+    fill: var(--primary-color);
+}
 
-                const htmlContent = marked.parse(cleanBody);
-                return { title, htmlContent, file };
-            } catch (e) {
-                console.error(e);
-                return { title: 'Loading Failed', htmlContent: `<p>Could not load ${file}</p>`, file };
-            }
-        });
+.menu {
+    font-weight: bold;
+    letter-spacing: 1px;
+    cursor: pointer;
+}
 
-        const loaded = await Promise.all(promises);
-        articles = articles.concat(loaded);
-        render();
-        setupEventListeners();
-    }
+#content-container {
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+}
 
-    /* -------------- 渲染 -------------- */
-    function render() {
-        contentContainer.innerHTML = '';
-        let html = '';
-        articles.forEach((a, i) => {
-            if (a.isHomePage) {
-                html += `<section class="article-section home-section" id="article-${i}" style="transform:translateY(${i*100}vh)">
-                           <div class="home-content-wrapper">
-                             <h1>Ximu的个人博客</h1>
-                             <p>一个记录学习和思考的地方。</p>
-                           </div>
-                         </section>`;
-            } else {
-                html += `<section class="article-section" id="article-${i}" style="transform:translateY(${i*100}vh)">
-                           <div class="article-title-wrapper">
-                             <h1 class="article-title">${a.title}</h1>
-                           </div>
-                           <div class="article-content-wrapper">
-                             <div class="article-content">${a.htmlContent}</div>
-                           </div>
-                         </section>`;
-            }
-        });
-        contentContainer.innerHTML = html;
-    }
+.article-section {
+    height: 100vh;
+    width: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: flex;
+    transition: transform 0.8s cubic-bezier(0.76, 0, 0.24, 1);
+    box-sizing: border-box;
+    padding-top: var(--header-height);
+}
 
-    /* -------------- 边界判定（滚轮 / 手势共用）-------------- */
-    function calcNextIndex(direction) {
-        if (currentArticleIndex === 0 && direction === -1) return null;
+.home-section .home-content-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    text-align: center;
+    padding: 20px;
+    box-sizing: border-box;
+}
 
-        const wrapper = document.querySelector(`#article-${currentArticleIndex} .article-content-wrapper`);
-        if (!wrapper) return currentArticleIndex + direction; // home
+.home-content-wrapper h1 {
+    font-size: clamp(2.5rem, 8vw, 5rem);
+    color: #fff;
+    text-shadow: 0 0 15px var(--primary-color), 0 0 25px var(--secondary-color);
+    margin: 0;
+}
 
-        const { scrollTop, scrollHeight, clientHeight } = wrapper;
-        if (direction === 1 && scrollHeight - scrollTop > clientHeight + 5) return null;
-        if (direction === -1 && scrollTop !== 0) return null;
+.home-content-wrapper p {
+    font-size: clamp(1rem, 3vw, 1.5rem);
+    color: var(--text-color);
+    margin-top: 20px;
+    max-width: 60ch;
+}
 
-        const next = currentArticleIndex + direction;
-        return (next >= 0 && next < articles.length) ? next : null;
-    }
+.article-title-wrapper {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    box-sizing: border-box;
+    position: relative;
+}
 
-    /* -------------- 事件监听总入口 -------------- */
-    function setupEventListeners() {
-        window.addEventListener('wheel', handleWheel, { passive: false });
-        initTouchSupport();                     // 新增的触摸控制
-        logo.addEventListener('click', e => {
-            e.preventDefault();
-            navigateToArticle(0);
-        });
-        menuBtn.addEventListener('click', e => {
-            e.stopPropagation();
-            createArticleMenu();
-        });
-        navigateToArticle(0, true);
-    }
 
-    /* -------------- 滚轮 -------------- */
-    const WHEEL_COOLDOWN = 500;
-    function handleWheel(e) {
-        e.preventDefault();
-        if (Date.now() - lastWheelTime < WHEEL_COOLDOWN) return;
-        lastWheelTime = Date.now();
+.article-title {
+    font-size: clamp(2rem, 5vw, 4rem);
+    font-weight: 900;
+    text-align: center;
+    color: #fff;
+    text-shadow: 0 0 10px var(--primary-color), 0 0 20px var(--secondary-color);
+    z-index: 1;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    max-height: 80%;
+    overflow-wrap: break-word;
+}
 
-        const next = calcNextIndex(e.deltaY > 0 ? 1 : -1);
-        if (next !== null) navigateToArticle(next);
-        else {
-            const wrapper = document.querySelector(`#article-${currentArticleIndex} .article-content-wrapper`);
-            if (wrapper) wrapper.scrollBy({ top: e.deltaY * 2, behavior: 'smooth' });
-        }
-    }
+.article-content-wrapper {
+    flex: 1;
+    padding: 40px;
+    overflow-y: auto;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    box-sizing: border-box;
+}
 
-    /* -------------- 触摸 / 指针手势 -------------- */
-    function initTouchSupport() {
-        let touch = { startY:0, startX:0, startTime:0, isVertical:null };
-        const MIN_DIST = 30;
-        const MAX_OFFX  = 50;
+.article-content-wrapper::-webkit-scrollbar {
+    width: 8px;
+}
+.article-content-wrapper::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+}
+.article-content-wrapper::-webkit-scrollbar-thumb {
+    background-color: var(--primary-color);
+    border-radius: 4px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+}
 
-        function start(e) {
-            if (e.pointerType !== 'touch') return;
-            touch.startY = e.clientY;
-            touch.startX = e.clientX;
-            touch.startTime = Date.now();
-            touch.isVertical = null;
-        }
-        function move(e) {
-            if (e.pointerType !== 'touch' || touch.isVertical === false) return;
-            if (touch.isVertical === null) {
-                const dx = Math.abs(e.clientX - touch.startX);
-                const dy = Math.abs(e.clientY - touch.startY);
-                if (dy > dx && dy > 10)        touch.isVertical = true;
-                else if (dx > 10)              touch.isVertical = false;
-            }
-            if (touch.isVertical) e.preventDefault();
-        }
-        function end(e) {
-            if (e.pointerType !== 'touch' || touch.isVertical !== true) return;
-            const dt   = e.clientY - touch.startY;
-            const dur  = Date.now() - touch.startTime;
-            if (Math.abs(dt) < MIN_DIST || dur > 600) return;
+.article-content {
+    max-width: 65ch;
+    margin: 0 auto;
+    line-height: 1.8;
+    color: #f0f0f0;
+}
 
-            const direction = dt < 0 ? 1 : -1;   // ↑ => 下一步
-            const next = calcNextIndex(direction);
-            if (next !== null) navigateToArticle(next);
-        }
+.article-content h1, .article-content h2, .article-content h3 {
+    color: #fff;
+    text-shadow: 0 0 5px var(--secondary-color);
+}
 
-        contentContainer.addEventListener('pointerdown', start, { passive:true });
-        window.addEventListener('pointermove', move, { passive:false });
-        window.addEventListener('pointerup', end, { passive:true });
-    }
+.article-content p {
+    margin-bottom: 1.5em;
+}
 
-    /* -------------- 页面切换动画 -------------- */
-    function navigateToArticle(index, immediate = false) {
-        if (isScrolling && !immediate) return;
-        isScrolling = true;
-        currentArticleIndex = index;
+.menu-list {
+    position: absolute;
+    top: var(--header-height);
+    right: 20px;
+    background: rgba(26, 26, 26, 0.9);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+    padding: 10px;
+    z-index: 200;
+}
 
-        document.querySelectorAll('.article-section').forEach((el, i) => {
-            const y = (i - index) * 100;
-            el.style.transition = immediate ? 'none' : 'transform 0.4s cubic-bezier(0.76,0,0.24,1)';
-            el.style.transform  = `translateY(${y}vh)`;
-        });
+.menu-list ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
 
-        setTimeout(() => {
-            isScrolling = false;
-            if (immediate) document.querySelectorAll('.article-section').forEach(s => s.style.transition='');
-        }, immediate ? 50 : 400);
-    }
+.menu-list li a {
+    display: block;
+    color: var(--text-color);
+    text-decoration: none;
+    padding: 8px 15px;
+    border-radius: 3px;
+    transition: background-color 0.3s;
+}
 
-    /* -------------- Menu 弹层 -------------- */
-    function createArticleMenu() {
-        if (document.querySelector('.menu-list')) {
-            document.querySelector('.menu-list').remove();
-            return;
-        }
-        const div = document.createElement('div');
-        div.className = 'menu-list';
-        let html = '<ul>';
-        articles.forEach((a, i) => {
-            if (!a.isHomePage) html += `<li><a href="#" data-index="${i}">${a.title}</a></li>`;
-        });
-        html += '</ul>';
-        div.innerHTML = html;
-        document.body.appendChild(div);
-
-        const remove = () => div.remove();
-        const closeOutside = e => {
-            if (!div.contains(e.target) && e.target !== menuBtn) remove();
-        };
-        div.addEventListener('click', e => {
-            if (e.target.tagName === 'A') {
-                e.preventDefault();
-                navigateToArticle(parseInt(e.target.dataset.index, 10));
-                remove();
-            }
-        });
-        setTimeout(() => document.addEventListener('click', closeOutside, { once:true }), 0);
-    }
-
-    /* -------------- 启动 -------------- */
-    loadArticles();
-});
+.menu-list li a:hover {
+    background-color: var(--primary-color);
+    color: #000;
+}
