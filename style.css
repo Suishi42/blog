@@ -203,3 +203,9 @@ header {
     background-color: var(--primary-color);
     color: #000;
 }
+
+.article-section,
+#content-container {
+  /* 让 JS setProperty() 的 --real-h 生效 */
+  height: var(--real-h, 100vh);
+}
