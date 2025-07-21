@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
-  container    = document.getElementById('content-container');
-  const menuBtn = document.querySelector('.menu');
-  const logo    = document.querySelector('.logo');
+  const container = document.getElementById('content-container');
+  const menuBtn   = document.querySelector('.menu');
+  const logo      = document.querySelector('.logo');
 
   const articleFiles = ['article1.md', 'article2.md'];
   let articles = [];
@@ -9,7 +9,25 @@ document.addEventListener('DOMContentLoaded', () => {
   let isScrolling = false;
   let lastWheelTime = 0;
 
-  /* ---------- 解析 Front-Matter ---------- */
+  /* ========= 1. 注入方案 B：真实 100 vh 计算 ========= */
+  function fix100VH() {
+    const trueH = window.visualViewport
+      ? window.visualViewport.height
+      : window.innerHeight;
+    document.documentElement.style.setProperty('--real-h', `${trueH}px`);
+
+    document.querySelectorAll('.article-section').forEach(el => {
+      el.style.height = `${trueH}px`;
+    });
+    // 更新全局容器高度
+    container.style.height = `${trueH}px`;
+  }
+  fix100VH();
+  window.visualViewport?.addEventListener('resize', fix100VH);
+  window.addEventListener('orientationchange', fix100VH);
+  /* ====================================================== */
+
+  /* ---------- 其余代码与原脚本完全一致 ---------- */
   function parseFrontMatter(markdown) {
     const m = markdown.match(/^---\s*\n([\s\S]+?)\n---\s*\n/);
     const front = {};
@@ -22,20 +40,16 @@ document.addEventListener('DOMContentLoaded', () => {
     return { frontMatter: front, body: m ? markdown.slice(m[0].length) : markdown };
   }
 
-  /* ---------- 文章加载 ---------- */
   async function loadArticles() {
     articles.push({ isHomePage: true, title: 'Ximu的个人博客' });
-
     const loaded = await Promise.all(
       articleFiles.map(async file => {
         try {
           const md = await fetch(`articles/${file}`).then(r => r.text());
           let { frontMatter, body } = parseFrontMatter(md);
-
-          const h1 = body.match(/^#\s+(.*)/m)?.[1];
+          const h1  = body.match(/^#\s+(.*)/m)?.[1];
           const title = h1 ?? frontMatter.title ?? file.replace('.md', '');
           body = h1 ? body.replace(/^#\s+.*\n?/m, '') : body;
-
           return { title, htmlContent: marked.parse(body), file };
         } catch (err) {
           console.error(err);
@@ -48,20 +62,19 @@ document.addEventListener('DOMContentLoaded', () => {
     setupListeners();
   }
 
-  /* ---------- 渲染 ---------- */
   function render() {
     container.innerHTML = '';
     let html = '';
     articles.forEach((a, i) => {
       if (a.isHomePage) {
-        html += `<section class="article-section home-section" id="article-${i}" style="transform:translateY(${(i - currentArticleIndex) * 100}vh)">
+        html += `<section class="article-section home-section" id="article-${i}">
                    <div class="home-content-wrapper">
                      <h1>Ximu的个人博客</h1>
                      <p>一个记录学习和思考的地方。</p>
                    </div>
                  </section>`;
       } else {
-        html += `<section class="article-section" id="article-${i}" style="transform:translateY(${(i - currentArticleIndex) * 100}vh)">
+        html += `<section class="article-section" id="article-${i}">
                    <div class="article-title-wrapper">
                      <h1 class="article-title">${a.title}</h1>
                    </div>
@@ -72,19 +85,18 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
     container.insertAdjacentHTML('beforeend', html);
+    fix100VH();      // 渲染之后立刻重算
   }
 
-  /* ---------- 边界判定 ---------- */
   function canPageFlip(dir) {
     if (currentArticleIndex === 0 && dir === -1) return false;
     const w = document.querySelector(`#article-${currentArticleIndex} .article-content-wrapper`);
-    if (!w) return true; // home
+    if (!w) return true;
     const { scrollTop, scrollHeight, clientHeight } = w;
     if (dir === 1) return scrollHeight - scrollTop <= clientHeight + 3;
     return scrollTop <= 3;
   }
 
-  /* ---------- 滚轮 ---------- */
   const WHEEL_COOLDOWN = 500;
   function onWheel(e) {
     if (Date.now() - lastWheelTime < WHEEL_COOLDOWN) return;
@@ -95,7 +107,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (next >= 0 && next < articles.length) navigateToArticle(next);
   }
 
-  /* ---------- 触摸整屏 & 正文滚动 ---------- */
   function initTouch() {
     const MIN_DIST = 30;
     let s0 = { y: 0, t: 0 };
@@ -125,7 +136,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }, { passive: true });
   }
 
-  /* ---------- 整屏切换 ---------- */
   function navigateToArticle(idx, immediate = false) {
     if (isScrolling && !immediate) return;
     isScrolling = true;
@@ -139,11 +149,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setTimeout(() => {
       isScrolling = false;
-      if (immediate) document.querySelectorAll('.article-section').forEach(s => s.style.transition = '');
+      if (immediate) {
+        document.querySelectorAll('.article-section').forEach(s => s.style.transition = '');
+      }
     }, immediate ? 50 : 400);
   }
 
-  /* ---------- 目录菜单 ---------- */
   function createMenu() {
     if (document.querySelector('.menu-list')) {
       document.querySelector('.menu-list').remove(); return;
@@ -164,7 +175,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => document.addEventListener('click', () => div.remove(), { once: true }), 0);
   }
 
-  /* ---------- 总绑定 ---------- */
   function setupListeners() {
     window.addEventListener('wheel', onWheel, { passive: false });
     initTouch();
