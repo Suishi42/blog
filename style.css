@@ -194,3 +194,14 @@ header {
     background-color: var(--primary-color);
     color: #000;
 }
+
+/* ===== 新增：移动端滑动优化 ===== */
+body {
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: auto;
+}
+
+.article-section {
+  contain: layout style;
+  will-change: transform;
+}
