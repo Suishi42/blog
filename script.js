@@ -3,10 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const menuBtn = document.querySelector('.menu');
     const logo = document.querySelector('.logo');
 
-    const articleFiles = [
-        'article1.md',
-        'article2.md'
-    ];
+    // 移除了写死的 articleFiles 数组
 
     let articles = [];
     let currentArticleIndex = 0;
@@ -38,34 +35,45 @@ document.addEventListener('DOMContentLoaded', () => {
             title: 'Ximu的个人博客'
         });
 
-        const articlePromises = articleFiles.map(async (file) => {
-            try {
-                const response = await fetch(`articles/${file}`);
-                if (!response.ok) throw new Error(`Network response was not ok for ${file}`);
-                const markdown = await response.text();
-                let { frontMatter, body } = parseFrontMatter(markdown);
-                
-                const h1Match = body.match(/^#\s+(.*)/m);
-                const title = h1Match ? h1Match[1] : (frontMatter.title || file.replace('.md', ''));
-                
-                // Remove the H1 title from the body before rendering
-                if (h1Match) {
-                    body = body.replace(/^#\s+(.*)\n?/, '');
+        try {
+            // 自动加载由构建脚本生成的 articles.json 文件
+            const response = await fetch('/articles.json');
+            if (!response.ok) throw new Error('Could not fetch articles.json');
+            const articleFiles = await response.json();
+
+            const articlePromises = articleFiles.map(async (file) => {
+                try {
+                    const response = await fetch(`articles/${file}`);
+                    if (!response.ok) throw new Error(`Network response was not ok for ${file}`);
+                    const markdown = await response.text();
+                    let { frontMatter, body } = parseFrontMatter(markdown);
+                    
+                    const h1Match = body.match(/^#\s+(.*)/m);
+                    const title = h1Match ? h1Match[1] : (frontMatter.title || file.replace('.md', ''));
+                    
+                    // Remove the H1 title from the body before rendering
+                    if (h1Match) {
+                        body = body.replace(/^#\s+(.*)\n?/, '');
+                    }
+
+                    const htmlContent = marked.parse(body);
+                    return { title, htmlContent, file };
+                } catch (error) {
+                    console.error(`Failed to load article ${file}:`, error);
+                    return { title: 'Loading Failed', htmlContent: `<p>Could not load ${file}.</p>`, file };
                 }
+            });
 
-                const htmlContent = marked.parse(body);
-                return { title, htmlContent, file };
-            } catch (error) {
-                console.error(`Failed to load article ${file}:`, error);
-                return { title: 'Loading Failed', htmlContent: `<p>Could not load ${file}.</p>`, file };
-            }
-        });
+            const loadedArticles = await Promise.all(articlePromises);
+            articles = articles.concat(loadedArticles);
+            
+            render();
+            setupEventListeners();
 
-        const loadedArticles = await Promise.all(articlePromises);
-        articles = articles.concat(loadedArticles);
-        
-        render();
-        setupEventListeners();
+        } catch (error) {
+            console.error("加载文章列表失败 (Failed to load article list):", error);
+            contentContainer.innerHTML = '<h1>加载文章列表失败，请检查构建配置。</h1>';
+        }
     }
 
     function render() {
@@ -118,9 +126,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const contentWrapper = document.querySelector(`#article-${currentArticleIndex} .article-content-wrapper`);
         if (!contentWrapper) {
-             const nextIndex = currentArticleIndex + direction;
-             if (nextIndex >= 0 && nextIndex < articles.length) navigateToArticle(nextIndex);
-             return;
+            const nextIndex = currentArticleIndex + direction;
+            if (nextIndex >= 0 && nextIndex < articles.length) navigateToArticle(nextIndex);
+            return;
         }
 
         const { scrollTop, scrollHeight, clientHeight } = contentWrapper;
