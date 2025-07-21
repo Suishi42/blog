@@ -129,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
     /* -------------- 触摸 / 指针手势 -------------- */
     function initTouchSupport() {
         let touch = { startY:0, startX:0, startTime:0, isVertical:null };
-        const MIN_DIST = 60;
+        const MIN_DIST = 30;
         const MAX_OFFX  = 50;
 
         function start(e) {
@@ -173,14 +173,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.querySelectorAll('.article-section').forEach((el, i) => {
             const y = (i - index) * 100;
-            el.style.transition = immediate ? 'none' : 'transform 0.8s cubic-bezier(0.76,0,0.24,1)';
+            el.style.transition = immediate ? 'none' : 'transform 0.4s cubic-bezier(0.76,0,0.24,1)';
             el.style.transform  = `translateY(${y}vh)`;
         });
 
         setTimeout(() => {
             isScrolling = false;
             if (immediate) document.querySelectorAll('.article-section').forEach(s => s.style.transition='');
-        }, immediate ? 50 : 800);
+        }, immediate ? 50 : 400);
     }
 
     /* -------------- Menu 弹层 -------------- */
