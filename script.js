@@ -1,202 +1,194 @@
 document.addEventListener('DOMContentLoaded', () => {
-  const container = document.getElementById('content-container');
-  const menuBtn   = document.querySelector('.menu');
-  const logo      = document.querySelector('.logo');
+    const contentContainer = document.getElementById('content-container');
+    const menuBtn = document.querySelector('.menu');
+    const logo = document.querySelector('.logo');
 
-  const articleFiles = ['article1.md', 'article2.md'];
-  let articles = [];
-  let currentArticleIndex = 0;
-  let isScrolling = false;
-  let lastWheelTime = 0;
+    const articleFiles = [
+        'article1.md',
+        'article2.md'
+    ];
 
-  /* ===== ① 真实 100 vh ===== */
-  function setRealH() {
-    const h = window.visualViewport?.height || window.innerHeight;
-    document.documentElement.style.setProperty('--real-h', `${h}px`);
+    let articles = [];
+    let currentArticleIndex = 0;
+    let isScrolling = false;
+    let lastWheelTime = 0;
 
-    // 整屏元素
-    container.style.height = `${h}px`;
-    document.querySelectorAll('.article-section').forEach(el => {
-      el.style.height = `${h}px`;
-    });
-
-    // 避免标题区撑空白：把正文高度计算为 h - 标题区
-    const titleEl = document.querySelector(`#article-${currentArticleIndex} .article-title-wrapper`);
-    if (titleEl) {
-      const titleH = titleEl.offsetHeight;
-      const bodyEl = document.querySelector(`#article-${currentArticleIndex} .article-content-wrapper`);
-      if (bodyEl) bodyEl.style.height = `calc(${h}px - ${titleH}px)`;
-    }
-  }
-
-  setRealH();
-  window.visualViewport?.addEventListener('resize', setRealH);
-  window.addEventListener('orientationchange', setRealH);
-
-  /* -------------------------------------------------- */
-  function parseFrontMatter(markdown) {
-    const m = markdown.match(/^---\s*\n([\s\S]+?)\n---\s*\n/);
-    const front = {};
-    if (m) {
-      m[1].split('\n').forEach(line => {
-        const [k, ...vs] = line.split(':');
-        if (k) front[k.trim()] = vs.join(':').trim();
-      });
-    }
-    return { frontMatter: front, body: m ? markdown.slice(m[0].length) : markdown };
-  }
-
-  async function loadArticles() {
-    articles.push({ isHomePage: true, title: 'Ximu的个人博客' });
-    const loaded = await Promise.all(
-      articleFiles.map(async file => {
-        try {
-          const md = await fetch(`articles/${file}`).then(r => r.text());
-          let { frontMatter, body } = parseFrontMatter(md);
-          const h1  = body.match(/^#\s+(.*)/m)?.[1];
-          const title = h1 ?? frontMatter.title ?? file.replace('.md', '');
-          body = h1 ? body.replace(/^#\s+.*\n?/m, '') : body;
-          return { title, htmlContent: marked.parse(body), file };
-        } catch (err) {
-          console.error(err);
-          return { title: '加载失败', htmlContent: `<p>无法加载 ${file}</p>`, file };
+    function parseFrontMatter(markdown) {
+        const frontMatterMatch = markdown.match(/^---\s*\n([\s\S]*?)\n---\s*\n/);
+        if (!frontMatterMatch) {
+            return { frontMatter: {}, body: markdown };
         }
-      })
-    );
-    articles = articles.concat(loaded);
-    render();
-    setupListeners();
-  }
-
-  function render() {
-    container.innerHTML = '';
-    let html = '';
-    articles.forEach((a, i) => {
-      if (a.isHomePage) {
-        html += `<section class="article-section home-section" id="article-${i}">
-                   <div class="home-content-wrapper">
-                     <h1>Ximu的个人博客</h1>
-                     <p>一个记录学习和思考的地方。</p>
-                   </div>
-                 </section>`;
-      } else {
-        html += `<section class="article-section" id="article-${i}">
-                   <div class="article-title-wrapper">
-                     <h1 class="article-title">${a.title}</h1>
-                   </div>
-                   <div class="article-content-wrapper">
-                     <div class="article-content">${a.htmlContent}</div>
-                   </div>
-                 </section>`;
-      }
-    });
-    container.insertAdjacentHTML('beforeend', html);
-    setRealH();           // ② 渲染完立刻重算并消除留白
-  }
-
-  function canPageFlip(dir) {
-    if (currentArticleIndex === 0 && dir === -1) return false;
-    const w = document.querySelector(`#article-${currentArticleIndex} .article-content-wrapper`);
-    if (!w) return true;
-    const { scrollTop, scrollHeight, clientHeight } = w;
-    if (dir === 1) return scrollHeight - scrollTop <= clientHeight + 3;
-    return scrollTop <= 3;
-  }
-
-  const WHEEL_COOLDOWN = 500;
-  function onWheel(e) {
-    if (Date.now() - lastWheelTime < WHEEL_COOLDOWN) return;
-    lastWheelTime = Date.now();
-    if (!canPageFlip(Math.sign(e.deltaY))) return;
-    e.preventDefault();
-    const next = currentArticleIndex + Math.sign(e.deltaY);
-    if (next >= 0 && next < articles.length) navigateToArticle(next);
-  }
-
-  function initTouch() {
-    const MIN_DIST = 30;
-    let s0 = { y: 0, t: 0 };
-
-    document.addEventListener('touchstart', e => {
-      s0 = { y: e.touches[0].clientY, t: Date.now() };
-    }, { passive: true });
-
-    document.addEventListener('touchmove', e => {
-      const wrapper = document.querySelector(`#article-${currentArticleIndex} .article-content-wrapper`);
-      if (!wrapper) return;
-      const dir = Math.sign(e.touches[0].clientY - s0.y);
-      const boundaryOK = canPageFlip(dir);
-      if (boundaryOK) e.preventDefault();
-    }, { passive: false });
-
-    document.addEventListener('touchend', e => {
-      if (isScrolling) return;
-      const dy = e.changedTouches[0].clientY - s0.y;
-      const du = Date.now() - s0.t;
-      if (Math.abs(dy) < MIN_DIST || du > 500) return;
-      const dir = Math.sign(dy);
-      if (canPageFlip(dir)) {
-        const next = currentArticleIndex + dir;
-        if (next >= 0 && next < articles.length) navigateToArticle(next);
-      }
-    }, { passive: true });
-  }
-
-  function navigateToArticle(idx, immediate = false) {
-    if (isScrolling && !immediate) return;
-    isScrolling = true;
-    currentArticleIndex = idx;
-    document.querySelectorAll('.article-section').forEach((el, i) => {
-      const y = (i - idx) * 100;
-      el.style.transition = immediate ? 'none' : 'transform .4s cubic-bezier(.76,0,.24,1)';
-      el.style.transform = `translateY(${y}vh)`;
-    });
-    setTimeout(() => {
-      isScrolling = false;
-      if (immediate) {
-        document.querySelectorAll('.article-section').forEach(s => s.style.transition = '');
-      }
-      setRealH();        // 切页后再算一次
-    }, immediate ? 50 : 400);
-  }
-
-  function createMenu() {
-    if (document.querySelector('.menu-list')) {
-      document.querySelector('.menu-list').remove();
-      return;
+        const frontMatterBlock = frontMatterMatch[1];
+        const body = markdown.substring(frontMatterMatch[0].length);
+        const frontMatter = {};
+        frontMatterBlock.split('\n').forEach(line => {
+            const parts = line.split(':');
+            if (parts.length >= 2) {
+                const key = parts[0].trim();
+                const value = parts.slice(1).join(':').trim();
+                frontMatter[key] = value;
+            }
+        });
+        return { frontMatter, body };
     }
-    const div = document.createElement('div');
-    div.className = 'menu-list';
-    div.innerHTML = '<ul>' +
-      articles
-        .map((a, i) =>
-          !a.isHomePage ? `<li><a href="#" data-idx="${i}">${a.title}</a></li>` : ''
-        )
-        .join('') +
-      '</ul>';
-    document.body.appendChild(div);
-    div.addEventListener('click', e => {
-      if (e.target.tagName === 'A') {
-        navigateToArticle(+e.target.dataset.idx);
-        div.remove();
-      }
-    });
-    setTimeout(
-      () => document.addEventListener('click', () => div.remove(), { once: true }),
-      0
-    );
-  }
 
-  function setupListeners() {
-    window.addEventListener('wheel', onWheel, { passive: false });
-    initTouch();
-    logo.addEventListener('click', e => {
-      e.preventDefault();
-      navigateToArticle(0);
-    });
-    menuBtn.addEventListener('click', createMenu);
-    navigateToArticle(0, true);
-  }
+    async function loadArticles() {
+        articles.push({
+            isHomePage: true,
+            title: 'Ximu的个人博客'
+        });
 
-  loadArticles();
+        const articlePromises = articleFiles.map(async (file) => {
+            try {
+                const response = await fetch(`articles/${file}`);
+                if (!response.ok) throw new Error(`Network response was not ok for ${file}`);
+                const markdown = await response.text();
+                let { frontMatter, body } = parseFrontMatter(markdown);
+                
+                const h1Match = body.match(/^#\s+(.*)/m);
+                const title = h1Match ? h1Match[1] : (frontMatter.title || file.replace('.md', ''));
+                
+                // Remove the H1 title from the body before rendering
+                if (h1Match) {
+                    body = body.replace(/^#\s+(.*)\n?/, '');
+                }
+
+                const htmlContent = marked.parse(body);
+                return { title, htmlContent, file };
+            } catch (error) {
+                console.error(`Failed to load article ${file}:`, error);
+                return { title: 'Loading Failed', htmlContent: `<p>Could not load ${file}.</p>`, file };
+            }
+        });
+
+        const loadedArticles = await Promise.all(articlePromises);
+        articles = articles.concat(loadedArticles);
+        
+        render();
+        setupEventListeners();
+    }
+
+    function render() {
+        contentContainer.innerHTML = '';
+        let sectionHTML = '';
+        articles.forEach((article, index) => {
+            if (article.isHomePage) {
+                sectionHTML += `
+                    <section class="article-section home-section" id="article-${index}" style="transform: translateY(${index * 100}vh);">
+                        <div class="home-content-wrapper"><h1>Ximu的个人博客</h1><p>一个记录学习和思考的地方。</p></div>
+                    </section>
+                `;
+            } else {
+                sectionHTML += `
+                    <section class="article-section" id="article-${index}" style="transform: translateY(${index * 100}vh);">
+                        <div class="article-title-wrapper">
+                            <h1 class="article-title">${article.title}</h1>
+                        </div>
+                        <div class="article-content-wrapper">
+                            <div class="article-content">${article.htmlContent}</div>
+                        </div>
+                    </section>
+                `;
+            }
+        });
+        contentContainer.innerHTML = sectionHTML;
+    }
+
+    function setupEventListeners() {
+        window.addEventListener('wheel', handleWheel, { passive: false });
+        logo.addEventListener('click', (e) => {
+            e.preventDefault();
+            navigateToArticle(0);
+        });
+        menuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            createArticleMenu();
+        });
+        navigateToArticle(0, true);
+    }
+
+    function handleWheel(e) {
+        e.preventDefault();
+        const now = Date.now();
+        if (now - lastWheelTime < 500) return;
+        lastWheelTime = now;
+
+        const direction = e.deltaY > 0 ? 1 : -1;
+        if (currentArticleIndex === 0 && direction === -1) return;
+
+        const contentWrapper = document.querySelector(`#article-${currentArticleIndex} .article-content-wrapper`);
+        if (!contentWrapper) {
+             const nextIndex = currentArticleIndex + direction;
+             if (nextIndex >= 0 && nextIndex < articles.length) navigateToArticle(nextIndex);
+             return;
+        }
+
+        const { scrollTop, scrollHeight, clientHeight } = contentWrapper;
+        if ((direction === 1 && scrollHeight - scrollTop <= clientHeight + 5) || (direction === -1 && scrollTop === 0)) {
+            const nextIndex = currentArticleIndex + direction;
+            if (nextIndex >= 0 && nextIndex < articles.length) navigateToArticle(nextIndex);
+        } else {
+            contentWrapper.scrollBy({ top: e.deltaY * 2, behavior: 'smooth' });
+        }
+    }
+
+    function navigateToArticle(index, immediate = false) {
+        if (isScrolling && !immediate) return;
+        isScrolling = true;
+        currentArticleIndex = index;
+        
+        document.querySelectorAll('.article-section').forEach((section, i) => {
+            const newTransform = `translateY(${(i - index) * 100}vh)`;
+            section.style.transition = immediate ? 'none' : 'transform 0.8s cubic-bezier(0.76, 0, 0.24, 1)';
+            section.style.transform = newTransform;
+        });
+
+        setTimeout(() => {
+            isScrolling = false;
+            if (immediate) document.querySelectorAll('.article-section').forEach(s => s.style.transition = '');
+        }, immediate ? 50 : 800);
+    }
+
+    function createArticleMenu() {
+        const existingMenu = document.querySelector('.menu-list');
+        if (existingMenu) {
+            existingMenu.remove();
+            return;
+        }
+
+        const menuContainer = document.createElement('div');
+        menuContainer.className = 'menu-list';
+        
+        let menuHtml = '<ul>';
+        articles.forEach((article, index) => {
+            if (!article.isHomePage) {
+                menuHtml += `<li><a href="#" data-index="${index}">${article.title}</a></li>`;
+            }
+        });
+        menuHtml += '</ul>';
+        menuContainer.innerHTML = menuHtml;
+        document.body.appendChild(menuContainer);
+
+        const closeMenu = () => {
+            if(menuContainer.parentElement) menuContainer.remove();
+            document.removeEventListener('click', closeMenuOnClickOutside);
+        };
+
+        const closeMenuOnClickOutside = (e) => {
+            if (!menuContainer.contains(e.target) && e.target !== menuBtn) closeMenu();
+        };
+
+        menuContainer.addEventListener('click', (e) => {
+            if (e.target.tagName === 'A') {
+                e.preventDefault();
+                const articleIndex = parseInt(e.target.dataset.index, 10);
+                navigateToArticle(articleIndex);
+                closeMenu();
+            }
+        });
+        
+        setTimeout(() => document.addEventListener('click', closeMenuOnClickOutside), 0);
+    }
+
+    loadArticles();
 });
