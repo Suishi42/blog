@@ -1,7 +1,7 @@
 :root {
-    --primary-color: #ff00ff; /* Magenta */
-    --secondary-color: #00f0ff; /* Cyan */
-    --tertiary-color: #dfff00; /* Lime Green */
+    --primary-color: #ff00ff;
+    --secondary-color: #00f0ff;
+    --tertiary-color: #dfff00;
     --background-color: #1a1a1a;
     --text-color: #f0f0f0;
     --header-height: 60px;
@@ -13,6 +13,12 @@
     100% { background-position: 0% 50%; }
 }
 
+/* === 关键：锁死整屏高度 === */
+html,body{
+    height:100dvh;
+    overflow:hidden;
+}
+
 body {
     margin: 0;
     font-family: 'Helvetica Neue', 'Arial', 'PingFang SC', 'Microsoft YaHei', sans-serif;
@@ -20,7 +26,6 @@ body {
     background-size: 400% 400%;
     animation: background-pan 15s ease infinite;
     color: var(--text-color);
-    overflow: hidden;
 }
 
 header {
@@ -56,19 +61,19 @@ header {
 }
 
 #content-container {
-    height: 100vh;
+    height: 100dvh;              /* 也统一成 100dvh */
     overflow: hidden;
     position: relative;
 }
 
 .article-section {
-    height: 100vh;
+    height: 100dvh;              /* 同上 */
     width: 100%;
     position: absolute;
     top: 0;
     left: 0;
     display: flex;
-    transition: transform 0.8s cubic-bezier(0.76, 0, 0.24, 1);
+    transition: transform 0.4s cubic-bezier(0.76, 0, 0.24, 1);   /* 缩短到 0.4s（灵敏度） */
     box-sizing: border-box;
     padding-top: var(--header-height);
 }
@@ -108,7 +113,6 @@ header {
     position: relative;
 }
 
-
 .article-title {
     font-size: clamp(2rem, 5vw, 4rem);
     font-weight: 900;
@@ -126,6 +130,8 @@ header {
     flex: 1;
     padding: 40px;
     overflow-y: auto;
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: auto;
     background: rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(5px);
     -webkit-backdrop-filter: blur(5px);
@@ -153,7 +159,9 @@ header {
     color: #f0f0f0;
 }
 
-.article-content h1, .article-content h2, .article-content h3 {
+.article-content h1,
+.article-content h2,
+.article-content h3 {
     color: #fff;
     text-shadow: 0 0 5px var(--secondary-color);
 }
