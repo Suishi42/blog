@@ -1,0 +1,45 @@
+/* style.css */
+body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAACCAYAAACZgbYnAAAAEklEQVQYV2NgYGD4z/CfEQARPAI5RLFx/wAAAABJRU5ErkJggg=='); /* 一个简单的半透明扫描线 */
+    background-repeat: repeat;
+    z-index: -1; /* 放在渐变背景之上，内容之下 */
+    opacity: 0.1;
+    pointer-events: none; /* 穿透点击 */
+}
+
+h1 {
+    font-family: 'Orbitron', sans-serif;
+    color: #FFFFFF;
+    font-size: clamp(2.5rem, 10vw, 4rem); /* 响应式字体大小 */
+    text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 20px #FF00FF, 0 0 30px #FF00FF;
+    transition: text-shadow 0.3s ease;
+}
+
+h1:hover {
+    /* 模拟数字信号干扰 */
+    animation: textGlitch 0.4s infinite;
+}
+
+@keyframes textGlitch {
+    0% { text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 20px #FF00FF, 0 0 30px #FF00FF, 2px 2px #00FFFF, -2px -2px #FF00FF; }
+    25% { text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 20px #00FFFF, 0 0 30px #00FFFF, -3px 3px #FF00FF, 3px -3px #00FFFF; }
+    50% { text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 20px #FF00FF, 0 0 30px #FF00FF, 2px -2px #00FFFF, -2px 2px #FF00FF; }
+    75% { text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 20px #00FFFF, 0 0 30px #00FFFF, -3px -3px #FF00FF, 3px 3px #00FFFF; }
+    100% { text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 20px #FF00FF, 0 0 30px #FF00FF, 2px 2px #00FFFF, -2px -2px #FF00FF; }
+}
+
+/* Lo-Fi Mode */
+body.low-fi-mode {
+    animation: none; /* 禁用背景动画 */
+    background: #1a1a1a;
+}
+body.low-fi-mode h1 {
+    animation: none;
+    text-shadow: none;
+}
