@@ -1,175 +1,177 @@
-:root {
-    --primary-color: #FF00FF;
-    --secondary-color: #00F0FF;
-    --tertiary-color: #DFFF00;
-    --background-color: #1a1a1a;
-    --text-color: #f0f0f0;
-    --header-height: 60px;
+document.addEventListener('DOMContentLoaded', () => {
+  container    = document.getElementById('content-container');
+  const menuBtn = document.querySelector('.menu');
+  const logo    = document.querySelector('.logo');
 
-    /* 动态视高变量 – JS 会刷新为真实像素 */
-    --real-h: 100dvh;
-}
+  const articleFiles = ['article1.md', 'article2.md'];
+  let articles = [];
+  let currentArticleIndex = 0;
+  let isScrolling = false;
+  let lastWheelTime = 0;
 
-@keyframes background-pan {
-    0%   { background-position: 0%   50%; }
-    50%  { background-position: 100% 50%; }
-    100% { background-position: 0%   50%; }
-}
+  /* ---------- 解析 Front-Matter ---------- */
+  function parseFrontMatter(markdown) {
+    const m = markdown.match(/^---\s*\n([\s\S]+?)\n---\s*\n/);
+    const front = {};
+    if (m) {
+      m[1].split('\n').forEach(line => {
+        const [k, ...vs] = line.split(':');
+        if (k) front[k.trim()] = vs.join(':').trim();
+      });
+    }
+    return { frontMatter: front, body: m ? markdown.slice(m[0].length) : markdown };
+  }
 
-/* 页面整体锁死 & 禁止纵向越界 */
-html, body {
-    height: 100%;
-    margin: 0;
-    overflow: hidden;
-}
+  /* ---------- 文章加载 ---------- */
+  async function loadArticles() {
+    articles.push({ isHomePage: true, title: 'Ximu的个人博客' });
 
-body {
-    font-family:
-        "Helvetica Neue", "Arial",
-        "PingFang SC", "Microsoft YaHei",
-        sans-serif;
-    background: linear-gradient(120deg,
-                   var(--primary-color),
-                   var(--secondary-color),
-                   var(--tertiary-color),
-                   var(--primary-color));
-    background-size: 400% 400%;
-    animation: background-pan 15s ease infinite;
-    color: var(--text-color);
-}
+    const loaded = await Promise.all(
+      articleFiles.map(async file => {
+        try {
+          const md = await fetch(`articles/${file}`).then(r => r.text());
+          let { frontMatter, body } = parseFrontMatter(md);
 
-/* 固定顶部 */
-header {
-    position: fixed;
-    top: 0; left: 0; z-index: 100;
-    width: 100%;
-    height: var(--header-height);
-    background: rgba(26, 26, 26, .8);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border-bottom: 1px solid rgba(255, 255, 255, .1);
-    box-sizing: border-box;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 20px;
-}
+          const h1 = body.match(/^#\s+(.*)/m)?.[1];
+          const title = h1 ?? frontMatter.title ?? file.replace('.md', '');
+          body = h1 ? body.replace(/^#\s+.*\n?/m, '') : body;
 
-.logo { cursor: pointer; }
-.logo polygon { fill: var(--primary-color); }
-.menu  { font-weight: bold; letter-spacing: 1px; cursor: pointer; }
+          return { title, htmlContent: marked.parse(body), file };
+        } catch (err) {
+          console.error(err);
+          return { title: '加载失败', htmlContent: `<p>无法加载 ${file}</p>`, file };
+        }
+      })
+    );
+    articles = articles.concat(loaded);
+    render();
+    setupListeners();
+  }
 
-/* ====== 容器、板块共用：100% – header 高度 ====== */
-#content-container,
-.article-section {
-    width: 100%;
-    /* 关键：calc 立即扣除 header 空间，顶端不留空。  */
-    height: var(--real-h);  /* JS 会替换为真实像素 */
-    position: relative;
-    box-sizing: border-box;
-    overflow: hidden;
-}
+  /* ---------- 渲染 ---------- */
+  function render() {
+    container.innerHTML = '';
+    let html = '';
+    articles.forEach((a, i) => {
+      if (a.isHomePage) {
+        html += `<section class="article-section home-section" id="article-${i}" style="transform:translateY(${(i - currentArticleIndex) * 100}vh)">
+                   <div class="home-content-wrapper">
+                     <h1>Ximu的个人博客</h1>
+                     <p>一个记录学习和思考的地方。</p>
+                   </div>
+                 </section>`;
+      } else {
+        html += `<section class="article-section" id="article-${i}" style="transform:translateY(${(i - currentArticleIndex) * 100}vh)">
+                   <div class="article-title-wrapper">
+                     <h1 class="article-title">${a.title}</h1>
+                   </div>
+                   <div class="article-content-wrapper">
+                     <div class="article-content">${a.htmlContent}</div>
+                   </div>
+                 </section>`;
+      }
+    });
+    container.insertAdjacentHTML('beforeend', html);
+  }
 
-.article-section {
-    display: flex;
-    box-sizing: border-box;
-    /* header 已占位，整块内容往下掉 60px，但不会额外留白 */
-    padding-top: var(--header-height);
-    transition: transform .4s cubic-bezier(.76, 0, .24, 1);
-}
+  /* ---------- 边界判定 ---------- */
+  function canPageFlip(dir) {
+    if (currentArticleIndex === 0 && dir === -1) return false;
+    const w = document.querySelector(`#article-${currentArticleIndex} .article-content-wrapper`);
+    if (!w) return true; // home
+    const { scrollTop, scrollHeight, clientHeight } = w;
+    if (dir === 1) return scrollHeight - scrollTop <= clientHeight + 3;
+    return scrollTop <= 3;
+  }
 
-/* === 首页居中 === */
-.home-section .home-content-wrapper {
-    margin: auto;
-    text-align: center;
-    padding: 20px;
-}
-.home-content-wrapper h1 {
-    margin: 0;
-    font-size: clamp(2.5rem, 8vw, 5rem);
-    color: #fff;
-    text-shadow: 0 0 15px var(--primary-color),
-                 0 0 25px var(--secondary-color);
-}
-.home-content-wrapper p {
-    margin: 20px 0 0;
-    max-width: 60ch;
-    font-size: clamp(1rem, 3vw, 1.5rem);
-}
+  /* ---------- 滚轮 ---------- */
+  const WHEEL_COOLDOWN = 500;
+  function onWheel(e) {
+    if (Date.now() - lastWheelTime < WHEEL_COOLDOWN) return;
+    lastWheelTime = Date.now();
+    if (!canPageFlip(Math.sign(e.deltaY))) return;
+    e.preventDefault();
+    const next = currentArticleIndex + Math.sign(e.deltaY);
+    if (next >= 0 && next < articles.length) navigateToArticle(next);
+  }
 
-/* === 文章页排版 === */
-.article-title-wrapper {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 40px;
-    box-sizing: border-box;
-}
-.article-title {
-    writing-mode: vertical-rl;
-    text-orientation: mixed;
-    font-size: clamp(2rem, 5vw, 4rem);
-    font-weight: 900;
-    color: #fff;
-    text-shadow: 0 0 10px var(--primary-color),
-                 0 0 20px var(--secondary-color);
-}
+  /* ---------- 触摸整屏 & 正文滚动 ---------- */
+  function initTouch() {
+    const MIN_DIST = 30;
+    let s0 = { y: 0, t: 0 };
 
-.article-content-wrapper {
-    flex: 1;
-    padding: 40px;
-    background: rgba(0, 0, 0, .6);
-    backdrop-filter: blur(5px);
-    -webkit-backdrop-filter: blur(5px);
-    border-left: 1px solid rgba(255, 255, 255, .1);
-    /** 可滚动，其余区域不滚 **/
-    overflow-y: auto;
-    overscroll-behavior: none;
-    -webkit-overflow-scrolling: touch;
-}
-.article-content-wrapper::-webkit-scrollbar {
-    width: 8px;
-}
-.article-content-wrapper::-webkit-scrollbar-thumb {
-    background: var(--primary-color);
-    border-radius: 4px;
-}
-.article-content {
-    max-width: 65ch;
-    margin: 0 auto;
-    line-height: 1.8;
-}
-.article-content h1,
-.article-content h2,
-.article-content h3 {
-    color: #fff;
-    text-shadow: 0 0 5px var(--secondary-color);
-}
-.article-content p { margin: 0 0 1.5em; }
+    document.addEventListener('touchstart', e => {
+      s0 = { y: e.touches[0].clientY, t: Date.now() };
+    }, { passive: true });
 
-/* === 目录浮层 === */
-.menu-list {
-    position: absolute;
-    top: calc(var(--header-height) + 5px);
-    right: 20px;
-    z-index: 200;
-    background: rgba(26, 26, 26, .9);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, .1);
-    border-radius: 5px;
-    padding: 10px;
-}
-.menu-list ul { list-style: none; margin: 0; padding: 0; }
-.menu-list li a {
-    display: block;
-    padding: 8px 15px;
-    text-decoration: none;
-    color: var(--text-color);
-    border-radius: 3px;
-}
-.menu-list li a:hover {
-    background-color: var(--primary-color);
-    color: #000;
-}
+    document.addEventListener('touchmove', e => {
+      const wrapper = document.querySelector(`#article-${currentArticleIndex} .article-content-wrapper`);
+      if (!wrapper) return;
+      const dir = Math.sign(e.touches[0].clientY - s0.y);
+      const boundaryOK = canPageFlip(dir);
+      if (boundaryOK) e.preventDefault();
+    }, { passive: false });
+
+    document.addEventListener('touchend', e => {
+      if (isScrolling) return;
+      const dy = e.changedTouches[0].clientY - s0.y;
+      const du = Date.now() - s0.t;
+      if (Math.abs(dy) < MIN_DIST || du > 500) return;
+      const dir = Math.sign(dy);
+      if (canPageFlip(dir)) {
+        const next = currentArticleIndex + dir;
+        if (next >= 0 && next < articles.length) navigateToArticle(next);
+      }
+    }, { passive: true });
+  }
+
+  /* ---------- 整屏切换 ---------- */
+  function navigateToArticle(idx, immediate = false) {
+    if (isScrolling && !immediate) return;
+    isScrolling = true;
+    currentArticleIndex = idx;
+
+    document.querySelectorAll('.article-section').forEach((el, i) => {
+      const y = (i - idx) * 100;
+      el.style.transition = immediate ? 'none' : 'transform .4s cubic-bezier(.76,0,.24,1)';
+      el.style.transform  = `translateY(${y}vh)`;
+    });
+
+    setTimeout(() => {
+      isScrolling = false;
+      if (immediate) document.querySelectorAll('.article-section').forEach(s => s.style.transition = '');
+    }, immediate ? 50 : 400);
+  }
+
+  /* ---------- 目录菜单 ---------- */
+  function createMenu() {
+    if (document.querySelector('.menu-list')) {
+      document.querySelector('.menu-list').remove(); return;
+    }
+    const div = document.createElement('div');
+    div.className = 'menu-list';
+    div.innerHTML = '<ul>' +
+      articles.map((a, i) => !a.isHomePage ? `<li><a href="#" data-idx="${i}">${a.title}</a></li>` : '').join('') +
+      '</ul>';
+    document.body.appendChild(div);
+
+    div.addEventListener('click', e => {
+      if (e.target.tagName === 'A') {
+        navigateToArticle(+e.target.dataset.idx);
+        div.remove();
+      }
+    });
+    setTimeout(() => document.addEventListener('click', () => div.remove(), { once: true }), 0);
+  }
+
+  /* ---------- 总绑定 ---------- */
+  function setupListeners() {
+    window.addEventListener('wheel', onWheel, { passive: false });
+    initTouch();
+    logo.addEventListener('click', e => { e.preventDefault(); navigateToArticle(0); });
+    menuBtn.addEventListener('click', createMenu);
+    navigateToArticle(0, true);
+  }
+
+  loadArticles();
+});
