@@ -9,25 +9,31 @@ document.addEventListener('DOMContentLoaded', () => {
   let isScrolling = false;
   let lastWheelTime = 0;
 
-  /* ========= 1. 注入方案 B：真实 100 vh 计算 ========= */
-  function fix100VH() {
-    const trueH = window.visualViewport
-      ? window.visualViewport.height
-      : window.innerHeight;
-    document.documentElement.style.setProperty('--real-h', `${trueH}px`);
+  /* ===== ① 真实 100 vh ===== */
+  function setRealH() {
+    const h = window.visualViewport?.height || window.innerHeight;
+    document.documentElement.style.setProperty('--real-h', `${h}px`);
 
+    // 整屏元素
+    container.style.height = `${h}px`;
     document.querySelectorAll('.article-section').forEach(el => {
-      el.style.height = `${trueH}px`;
+      el.style.height = `${h}px`;
     });
-    // 更新全局容器高度
-    container.style.height = `${trueH}px`;
-  }
-  fix100VH();
-  window.visualViewport?.addEventListener('resize', fix100VH);
-  window.addEventListener('orientationchange', fix100VH);
-  /* ====================================================== */
 
-  /* ---------- 其余代码与原脚本完全一致 ---------- */
+    // 避免标题区撑空白：把正文高度计算为 h - 标题区
+    const titleEl = document.querySelector(`#article-${currentArticleIndex} .article-title-wrapper`);
+    if (titleEl) {
+      const titleH = titleEl.offsetHeight;
+      const bodyEl = document.querySelector(`#article-${currentArticleIndex} .article-content-wrapper`);
+      if (bodyEl) bodyEl.style.height = `calc(${h}px - ${titleH}px)`;
+    }
+  }
+
+  setRealH();
+  window.visualViewport?.addEventListener('resize', setRealH);
+  window.addEventListener('orientationchange', setRealH);
+
+  /* -------------------------------------------------- */
   function parseFrontMatter(markdown) {
     const m = markdown.match(/^---\s*\n([\s\S]+?)\n---\s*\n/);
     const front = {};
@@ -85,7 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
     container.insertAdjacentHTML('beforeend', html);
-    fix100VH();      // 渲染之后立刻重算
+    setRealH();           // ② 渲染完立刻重算并消除留白
   }
 
   function canPageFlip(dir) {
@@ -140,45 +146,54 @@ document.addEventListener('DOMContentLoaded', () => {
     if (isScrolling && !immediate) return;
     isScrolling = true;
     currentArticleIndex = idx;
-
     document.querySelectorAll('.article-section').forEach((el, i) => {
       const y = (i - idx) * 100;
       el.style.transition = immediate ? 'none' : 'transform .4s cubic-bezier(.76,0,.24,1)';
-      el.style.transform  = `translateY(${y}vh)`;
+      el.style.transform = `translateY(${y}vh)`;
     });
-
     setTimeout(() => {
       isScrolling = false;
       if (immediate) {
         document.querySelectorAll('.article-section').forEach(s => s.style.transition = '');
       }
+      setRealH();        // 切页后再算一次
     }, immediate ? 50 : 400);
   }
 
   function createMenu() {
     if (document.querySelector('.menu-list')) {
-      document.querySelector('.menu-list').remove(); return;
+      document.querySelector('.menu-list').remove();
+      return;
     }
     const div = document.createElement('div');
     div.className = 'menu-list';
     div.innerHTML = '<ul>' +
-      articles.map((a, i) => !a.isHomePage ? `<li><a href="#" data-idx="${i}">${a.title}</a></li>` : '').join('') +
+      articles
+        .map((a, i) =>
+          !a.isHomePage ? `<li><a href="#" data-idx="${i}">${a.title}</a></li>` : ''
+        )
+        .join('') +
       '</ul>';
     document.body.appendChild(div);
-
     div.addEventListener('click', e => {
       if (e.target.tagName === 'A') {
         navigateToArticle(+e.target.dataset.idx);
         div.remove();
       }
     });
-    setTimeout(() => document.addEventListener('click', () => div.remove(), { once: true }), 0);
+    setTimeout(
+      () => document.addEventListener('click', () => div.remove(), { once: true }),
+      0
+    );
   }
 
   function setupListeners() {
     window.addEventListener('wheel', onWheel, { passive: false });
     initTouch();
-    logo.addEventListener('click', e => { e.preventDefault(); navigateToArticle(0); });
+    logo.addEventListener('click', e => {
+      e.preventDefault();
+      navigateToArticle(0);
+    });
     menuBtn.addEventListener('click', createMenu);
     navigateToArticle(0, true);
   }
