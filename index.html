@@ -3,24 +3,616 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ximu的个人博客</title>
-    <link rel="stylesheet" href="style.css">
+    <title>根茎理论机器 :: 毛坯文件</title>
+    <style>
+        /* 网页的CSS样式部分。通常您不需要修改这里。 */
+        @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap');
+        :root {
+            --bg-color: #0a0a0a;
+            --node-bg: #1a1a1a;
+            --node-border: #33ff99;
+            --node-text: #e0e0e0;
+            --panel-bg: rgba(20, 20, 20, 0.97);
+            --panel-border: #888;
+            --highlight-color: #ff33cc;
+            --line-color: rgba(51, 255, 153, 0.2);
+            --line-highlight-color: rgba(255, 51, 204, 0.8);
+            --font-family: 'Roboto Mono', monospace;
+        }
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background-color: var(--bg-color); color: var(--node-text);
+            font-family: var(--font-family); overflow: hidden; cursor: grab;
+        }
+        #type-nodes-container {
+        position: fixed;
+        top: 100px;
+        left: 20px;
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        }
+        .type-node {
+            background-color: var(--node-bg);
+            border: 1px solid var(--highlight-color);
+            color: var(--highlight-color);
+            padding: 8px 12px;
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 0.8em;
+            transition: all 0.2s ease;
+            box-shadow: 0 0 10px rgba(255, 51, 204, 0.3);
+            text-align: center;
+        }
+        .type-node:hover {
+            background-color: var(--highlight-color);
+            color: var(--bg-color);
+            transform: scale(1.05);
+        }
+        #title-card {
+            position: fixed; top: 20px; left: 20px; color: var(--node-border);
+            z-index: 1000; font-size: 1.2em; text-shadow: 0 0 5px var(--node-border);
+        }
+        #title-card span { font-size: 0.7em; color: var(--panel-border); display: block; }
+        #rhizome-map { position: relative; width: 100%; height: 100%; }
+        .node {
+            position: absolute; background-color: var(--node-bg);
+            border: 1px solid var(--node-border); border-radius: 4px;
+            padding: 10px 15px; cursor: pointer; user-select: none;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+            animation: drift 20s infinite alternate ease-in-out;
+            z-index: 10; box-shadow: 0 0 10px rgba(51, 255, 153, 0.3); font-size: 0.9em;
+        }
+        .node:hover { transform: scale(1.1); border-color: var(--highlight-color); z-index: 11; }
+        .node.active { border-color: var(--highlight-color); box-shadow: 0 0 20px var(--highlight-color); transform: scale(1.15); z-index: 12; }
+        @keyframes drift {
+            0% { transform: translate(0, 0); } 50% { transform: translate(-5px, 10px); } 100% { transform: translate(0, 0); }
+        }
+        #connections { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+        #connections line { stroke: var(--line-color); stroke-width: 1; transition: stroke 0.3s ease; }
+        #connections line.highlight { stroke: var(--line-highlight-color); stroke-width: 2; }
+        #info-panel {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9);
+            width: 90%; max-width: 700px; max-height: 85vh;
+            background-color: var(--panel-bg); border: 1px solid var(--panel-border);
+            border-radius: 5px; padding: 25px; box-shadow: 0 0 30px rgba(0,0,0,0.7);
+            z-index: 100; opacity: 0; pointer-events: none;
+            transition: opacity 0.3s ease, transform 0.3s ease; overflow-y: auto;
+        }
+        #info-panel.visible { opacity: 1; transform: translate(-50%, -50%) scale(1); pointer-events: all; }
+        #info-panel h2 { margin-top: 0; color: var(--highlight-color); text-shadow: 0 0 5px var(--highlight-color); }
+        #info-panel h3 { color: var(--node-border); border-bottom: 1px solid var(--line-color); padding-bottom: 5px; margin-top: 20px; }
+        #info-panel p, #info-panel ul { line-height: 1.7; font-size: 0.9em; }
+        #info-panel ul { padding-left: 20px; }
+        #info-panel .close-btn { position: absolute; top: 15px; right: 15px; cursor: pointer; font-size: 1.5em; color: var(--panel-border); transition: color 0.2s ease, transform 0.2s ease; }
+        #info-panel .close-btn:hover { color: var(--highlight-color); transform: rotate(90deg); }
+        #info-panel .internal-link { color: var(--node-border); text-decoration: underline; cursor: pointer; transition: color 0.2s; }
+        #info-panel .internal-link:hover { color: var(--highlight-color); }
+        .connection-point { margin-top: 30px; padding: 15px; border: 1px dashed var(--panel-border); border-radius: 4px; }
+        .connection-point h4 { margin-top: 0; color: var(--node-text); font-weight: bold; }
+        .connection-point .meta { font-size: 0.8em; color: var(--panel-border); margin-bottom: 10px; }
+        .connection-point .meta span { color: var(--highlight-color); }
+        .viz-prompt { background-color: #111; border-left: 3px solid var(--node-border); padding: 10px; font-size: 0.85em; margin-top: 10px; }
+    
+    </style>
 </head>
 <body>
-    <header>
-        <div class="logo">
-            <svg width="40" height="40" viewBox="0 0 100 100">
-                <polygon points="50,0 100,50 50,100 0,50" fill="#FF00FF"/>
-            </svg>
-        </div>
-        <nav class="menu">Menu</nav>
-    </header>
 
-    <main id="content-container">
-        <!-- 内容将由JavaScript动态生成 -->
-    </main>
+    <!-- 网页的HTML结构部分。通常您不需要修改这里。 -->
+    <div id="title-card">
+        根茎理论机器
+        <span>A Rhizomatic Theory-Machine</span>
+    </div>
+    <div id="type-nodes-container"></div>
+    <svg id="connections"></svg>
+    <div id="rhizome-map"></div>
+    <div id="info-panel">
+        <div class="close-btn">&times;</div>
+        <div id="panel-content"></div>
+    </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="script.js"></script>
+    <!-- 网页的JavaScript逻辑和数据部分。这是您未来主要的工作区域。 -->
+    <script>
+    const theoryData = {
+        
+        // ==================================================================
+        // [区域 A]: 概念定义 (Concepts)
+        // ==================================================================
+        // 此处定义了地图上出现的每一个“节点”(概念)。
+        // 格式: "英文id": { name: "中文名称", content: `HTML内容` }
+        // 注意: 每个概念块之间需要用逗号 , 隔开。
+        // ==================================================================
+        concepts: {
+
+            // --- ↓↓↓ 将AI生成的【概念代码块】粘贴到这里 ↓↓↓ ---
+            
+            // 示例 (您可以删除或保留此示例):
+            "big-other": {
+                name: "大他者 (Big Other)",
+                content: "<h2>大他者 (Big Other)</h2><p>象征秩序的总体代表,是语言、法律、文化规范等构成的<b>虚拟坐标系</b>。它不仅是外部权威,更是主体内化的、用以理解世界和自身欲望的“第三方”视点。主体总是假设大他者存在,并向其寻求认可和意义的保证。</p><h3>详细举例</h3><p>除了法律、宗教,还包括科学话语、历史叙事、市场逻辑等。例如,一个科学家相信其研究必须遵循“科学共同体”的规范和验证,这个“科学共同体”就是大他者。我们说话时,总会预设听者能理解我们,这个“可理解性”的保证者也是大他者。</p><h3>核心功能/作用</h3><ul><li><b>意义的担保者:</b> 保证符号系统的稳定和意义的成立。</li><li><b>欲望的定位器:</b> 主体的</b>欲望</b>总是在“大他者想要什么？”的追问中形成的。</li><li><b>身份的授予者:</b> 提供社会身份和角色认同。</li></ul><h3>常见误解/补充说明</h3><p><b>误解:</b> 大他者不是一个具体的人或实体(如政府),而是一个<b>结构性的、符号性的位置</b>。<br><b>补充:</b> 大他者自身是<b>不完整、有缺陷的</b>(即“大他者不存在”),它无法提供最终的保证,这个裂隙是主体焦虑的根源。</p>"
+            },
+            "depressive-structure": {
+                name: "抑郁的结构",
+                content: "<h2>抑郁的结构</h2><p>当<b>大他者<b>作为意义担保者的功能彻底失效,其内在矛盾暴露无遗时,</b>主体</b>所陷入的<b>结构性瘫痪状态</b>。这不仅是个人情感低落,更是整个<b>意义坐标系的崩塌</b>,导致</b>欲望</b>、行动和未来想象力的全面悬置。</p><h3>详细举例</h3><p>后现代社会中,传统权威(宗教、国家、家庭)全面瓦解,消费主义用无尽的“选择自由”替代了宏大叙事,但这些选择无法提供根本的意义支撑,导致个体在“什么都可以做”的表象下感到“做什么都无所谓”的深层抑郁。</p><h3>核心功能/作用</h3><ul><li><b>揭示依赖性:</b> 暴露了主体对大他者(意义框架)的根本依赖。</li><li><b>意义的真空:</b> 体现了当</b>符号秩序</b>失效时,主体无法定位自身欲望和行动方向的状态。</li></ul><h3>常见误解/补充说明</h3><p><b>误解:</b> 这不完全等同于临床医学上的“抑郁症”,而是一种<b>社会性、哲学性的诊断</b>,描述的是一种主体与意义世界关系的断裂。</p>"
+            },
+            "ideology": {
+                name: "意识形态",
+                content: "<h2>意识形态</h2><p>一套<b>无意识的、实践性的社会信念系统</b>。它并非简单的“虚假观念”,而是通过日常仪式、社会惯例和物质实践来建构我们对现实的体验,使其显得“自然而然”,从而掩盖社会内在的矛盾和权力关系。</p><h3>详细举例</h3><p>齐泽克常举的例子:我们都知道环保的重要性,但依然参与过度消费的体系。我们通过<b>垃圾分类</b>这个仪式行为,来缓解内心的罪恶感,从而让消费体系得以继续运转。垃圾分类在此就扮演了意识形态的角色。</p><h3>核心功能/作用</h3><ul><li><b>自然化:</b> 将人为的、偶然的社会结构呈现为永恒的、自然的秩序。</li><li><b>掩盖矛盾:</b> 平滑和掩饰社会中的阶级对立、剥削等根本性矛盾。</li><li><b>组织享乐:</b> 规定了我们“应该”如何</b>享乐</b>,从而将我们束缚在现有体系内。</li></ul><h3>常见误解/补充说明</h3><p><b>误解:</b> 意识形态不只是“洗脑宣传”。最强大的意识形态恰恰是我们<b>明知其虚假,但在行动上依然遵循</b>的那些规则(犬儒主义)。</p>"
+            },
+            "desire": {
+                name: "欲望 (Desire)",
+                content: "<h2>欲望 (Desire)</h2><p><b>永不满足的、由“匮乏”驱动的动力</b>。它不是对具体事物的简单需求(Need),而是对“他者之欲望”的欲望,即渴望被<b>大他者<b>承认和欲望着。它本质上是一种形而上的、由语言和</b>符号秩序</b>塑造的追求。</p><h3>详细举例</h3><p>一个人疯狂购买奢侈品,其<b>需求</b>是物品本身,但其<b>欲望</b>可能是渴望获得“上流社会”(大他者)的认可,或是模仿某个偶像的生活方式。欲望的对象(奢侈品)只是一个借口,真正追求的是那个不可企及的“认可”。</p><h3>核心功能/作用</h3><ul><li><b>主体的驱动力:</b> 构成</b>主体</b>行动和存在的根本动力。</li><li><b>维持运动:</b> 欲望的永不满足性,使主体永远处于追寻和运动的状态,避免了停滞和死亡。</li></ul><h3>常见误解/补充说明</h3><p><b>误解:</b> 欲望不是可以被满足的。一旦达到某个目标,欲望会立刻转向下一个目标,因为它真正追求的不是对象本身,而是<b>追求本身的状态</b>。</p>"
+            },
+            "fantasy": {
+                name: "幻象 (Fantasy)",
+                content: "<h2>幻象 (Fantasy)</h2><p>主体为组织其</b>欲望</b>、掩盖<b>大他者<b>的不一致性和</b>实在界</b>的创伤而构建的<b>无意识叙事框架</b>。它不是对现实的逃避,而是<b>构建现实感的基础</b>,教导我们“如何去欲望”。</p><h3>详细举例</h3><p>“努力工作就能成功”是一个典型的社会幻象。它掩盖了社会结构不公的实在界,为主体提供了一个可行的欲望路径和行动脚本。即使遭遇失败,主体也可能归咎于“自己不够努力”,从而维系幻象的有效性。</p><h3>核心功能/作用</h3><ul><li><b>欲望的支撑:</b> 为欲望提供一个场景和目标,使其得以持续。</li><li><b>现实的屏障:</b> 保护主体免受实在界创伤的直接冲击。</li><li><b>掩盖匮乏:</b> 掩盖主体自身和大他者内在的根本性匮乏。</li></ul><h3>常见误解/补充说明</h3><p><b>误解:</b> 幻象不等于“幻想”或“白日梦”。它是一个<b>结构性的、无意识的框架</b>,比我们意识层面的想象要深刻和根本得多。</p>"
+            },
+            "symbolic": {
+                name: "符号秩序 (Symbolic)",
+                content: "<h2>符号秩序 (Symbolic)</h2><p>由语言、法律、亲属关系、社会规范等构成的<b>象征性网络</b>。它是人类脱离自然状态、进入文化社会的基础。我们通过符号秩序来理解世界、建立社会关系和形成自我认同。</p><h3>详细举例</h3><p>交通信号灯系统就是一个微型的符号秩序。红灯本身没有“停止”的物理属性,但在这个符号系统内,它被赋予了“禁止通行”的意义,所有参与者都遵循这个规则,从而构建了有序的交通。</p><h3>核心功能/作用</h3><ul><li><b>创造意义:</b> 将混乱的现实转化为有意义、可沟通的世界。</li><li><b>建构主体:</b> </b>主体</b>通过被命名、被纳入符号网络而诞生。</li><li><b>规范社会:</b> 建立社会契约和行为准则。</li></ul><h3>常见误解/补充说明</h3><p><b>误解:</b> 符号秩序不等于“客观现实”。它是一个<b>人为建构的系统</b>,并且总是有漏洞的,无法完全覆盖所有现实(那些漏洞就是</b>实在界</b>)。</p>"
+            },
+            "real": {
+                name: "实在界 (Real)",
+                content: "<h2>实在界 (Real)</h2><p><b>超越并抵抗符号化的、创伤性的现实内核</b>。它不是我们日常感知的“现实”,而是</b>符号秩序</b>无法捕捉、无法言说的部分,是意义网络的漏洞和断裂之处。它通常以创伤、恐怖、极度的</b>享乐</b>或无法解释的偶然事件的形式显现。</p><h3>详细举例</h3><p>突如其来的自然灾害、无端的暴力行为、死亡的绝对性,都是实在界的体现。它们打破了我们日常生活的意义和秩序,暴露出世界底层的偶然和无意义。科幻电影中的外星异形(Alien)也常是实在界的象征。</p><h3>核心功能/作用</h3><ul><li><b>秩序的极限:</b> 标志着符号秩序和我们理解能力的边界。</li><li><b>创伤的核心:</b> 是所有心理创伤的根源。</li><li><b>欲望的根源:</b> 符号秩序试图填补实在界的这个“洞”,</b>欲望</b>正是在这个填补过程中产生的。</li></ul><h3>常见误解/补充说明</h3><p><b>误解:</b> 实在界<b>不是</b>“真实世界”或“客观现实”(reality)。它恰恰是现实中那个<b>无法被现实化、无法被符号化</b>的硬核。</p>"
+            },
+            "subject-split": {
+                name: "主体的分裂 ($)",
+                content: "<h2>主体的分裂 ($)</h2><p>主体在进入</b>符号秩序</b>时,必然经历的<b>根本性分裂</b>。由于语言无法完全表达主体的存在,主体永远是一个“被言说”的存在,其自身总有一部分被排除在符号之外。因此,主体内部永远存在着矛盾、匮乏和不一致性。</p><h3>详细举例</h3><p>一个人在公开场合表现得自信、专业(符合符号秩序的角色),但其内心深处可能充满不安全感和自我怀疑。这个“面具”与“内心”的鸿沟,就是主体的分裂。意识和无意识的分裂也是其体现。</p><h3>核心功能/作用</h3><ul><li><b>存在的代价:</b> 分裂是主体获得语言和身份所必须付出的代价。</li><li><b>欲望的引擎:</b> 正是因为分裂和匮乏,主体才会产生</b>欲望</b>,试图弥合分裂,实现统一(虽然这永远不可能)。</li></ul><h3>常见误解/补充说明</h3><p><b>误解:</b> 主体的分裂不是一种需要被治愈的“病态”。它是<b>人类存在的基本结构</b>,是成为一个“说话的主体”的必然结果。</p>"
+            },
+            "jouissance": {
+                name: "享乐 (Jouissance)",
+                content: "<h2>享乐 (Jouissance)</h2><p>一种<b>超越“快乐原则”的、痛苦的、过度的快感</b>。它与死亡驱力相关,是</b>主体</b>在触及</b>实在界</b>时的体验。它不是舒适的满足,而是一种破坏性的、令人上瘾的“享受”,常常以</b>症候</b>的形式出现。</p><h3>详细举例</h3><p>一个工作狂明知过度工作有害健康、牺牲了家庭生活(痛苦),但依然无法停止,并从中获得一种病态的满足感。这种“不得不”的、带有强迫性的享受就是享乐。瘾症(赌博、酗酒)也是典型的例子。</p><h3>核心功能/作用</h3><ul><li><b>实在界的闯入:</b> 是实在界侵入符号秩序时产生的体验。</li><li><b>症候的核心:</b> 症候之所以难以根除,是因为主体在无意识中“享受”着自己的症候。</li></ul><h3>常见误解/补充说明</h3><p><b>误解:</b> 享乐<b>不等于</b>快乐或愉悦(pleasure)。快乐是符合社会规范的、有益的,而享乐是过度的、危险的、破坏性的。</p>"
+            },
+            "objet-a": {
+                name: "对象a (Objet petit a)",
+                content: "<h2>对象a (Objet petit a)</h2><p><b></b>欲望</b>的诱因对象,是</b>主体</b>身上被符号化“阉割”后脱落下来的、</b>实在界</b>的残余</b>。它不是欲望的目标,而是<b>驱动欲望的原因</b>。它是一个虚幻的、看似能填补主体匮乏的“小东西”,表现为凝视、声音、乳房、粪便等局部对象。</p><h3>详细举例</h3><p>在爱情中,爱人身上某个微小的、无法言说的特质(如眼神、声音的某个音调、一个不经意的姿态)常常是激起爱欲的真正原因,这个特质就是对象a。它看似能带来完美的满足,但永远无法被真正捕获。</p><h3>核心功能/作用</h3><ul><li><b>欲望的引擎:</b> 它是点燃和维持欲望机器运转的火花。</li><li><b>幻象的核心:</b> </b>幻象</b>的叙事结构通常就是围绕着如何获得或保护这个对象a而展开的。</li></ul><h3>常见误解/补充说明</h3><p><b>误解:</b> 对象a<b>不是</b>你想要得到的那个具体的东西。它是那个东西身上让你“着迷”的、无法言说的“X因素”,是匮乏本身的物质化体现。</p>"
+            },
+            "neurosis": {
+                name: "神经症 (Neurosis)",
+                content: "<h2>神经症 (Neurosis)</h2><p>主体结构的一种,其核心机制是<b>压抑 (Repression)</b>。神经症主体接受了</b>父之名</b>所代表的象征性阉割,进入了</b>符号秩序</b>,但对阉割的接受是不完全的。其核心问题是关于</b>欲望</b>和</b>享乐</b>的:“我的欲望是什么？”“他者想要我怎样？”</p><h3>详细举例</h3><p><b>癔症 (Hysteria)</b>:不断质疑权威(主人),并试图让自己成为他者欲望的对象,其问题是“我是男人还是女人？”。<b>强迫症 (Obsessional Neurosis)</b>:通过复杂的仪式和思想斗争来试图掌控欲望和死亡,其问题是“我是死是活？”。日常的拖延、过度思虑、对权威的矛盾态度都可视为神经症特征。</p><h3>核心功能/作用</h3><ul><li><b>主体性的常态:</b> 在拉康理论中,神经症是“正常”的主体结构,因为它成功地被社会化了。</li><li><b>欲望的辩证:</b> 神经症主体通过</b>症候</b>和</b>幻象</b>来处理其无法解决的欲望问题。</li></ul><h3>常见误解/补充说明</h3><p><b>补充:</b> 神经症的根源在于,主体认为<b>大他者<b>是完整的,并试图满足其想象中的要求,从而陷入无尽的挣扎。</p>"
+            },
+            "psychosis": {
+                name: "精神病 (Psychosis)",
+                content: "<h2>精神病 (Psychosis)</h2><p>主体结构的一种,其核心机制是<b>排除/拒绝 (Foreclosure)</b>。精神病主体未能将关键的能指——</b>父之名</b>——整合进其</b>符号秩序</b>中。这导致其符号世界出现一个“洞”,现实感极不稳定。</p><h3>详细举例</h3><p>法官施雷伯的案例是经典。他认为自己正在变成女人,以便为上帝诞下新的人类。在这里,被排除的符号性法则(父之名)从</b>实在界</b>以幻觉和妄想的形式回归,一个无所不能、要求享乐的<b>大他者<b>直接对他发号施令。</p><h3>核心功能/作用</h3><ul><li><b>符号秩序的崩溃:</b> 精神病结构揭示了当符号秩序的锚点失效时,意义世界会如何瓦解。</li><li><b>实在界的入侵:</b> 被排除在符号界之外的东西,会直接从实在界回归,带来毁灭性的体验。</li></ul><h3>常见误解/补充说明</h3><p><b>误解:</b> 这不是对精神病患者的污名化,而是一种结构分析。它描述的是主体与语言和法则的关系,而非行为的好坏。</p>"
+            },
+            "perversion": {
+                name: "倒错 (Perversion)",
+                content: "<h2>倒错 (Perversion)</h2><p>主体结构的一种,其核心机制是<b>否认 (Disavowal)</b>。倒错者清楚地知道象征性阉割(法则的限制),但他拒绝承认这对“他”适用。他不像神经症患者那样压抑欲望,而是致力于成为实现<b>大他者<b>之</b>享乐</b>的工具。</p><h3>详细举例</h3><p>萨德主义和受虐狂是典型。萨德主义者将他人置于</b>对象a</b>的位置,通过折磨对方来获得享乐。受虐狂则将自己变成对象,服务于他者的享乐。在日常生活中,官僚主义者严格执行规则,将自己变成规则的工具,无视规则背后的人性,这也是一种倒错结构。</p><h3>核心功能/作用</h3><ul><li><b>法则的工具化:</b> 倒错者不是反抗法则,而是将自己变成法则最忠实的执行者和工具。</li><li><b>揭示他者享乐:</b> 倒错结构暴露了隐藏在社会法则背后的大他者的享乐意志。</li></ul><h3>常见误解/补充说明</h3><p><b>误解:</b> “倒错”在拉康这里是一个<b>结构术语</b>,主要不是指特定的性偏好,而是指一种主体与法则和享乐的关系模式。</p>"
+            },
+            "name-of-the-father": {
+                name: "父之名 (Name-of-the-Father)",
+                content: "<h2>父之名 (Name-of-the-Father)</h2><p>一个<b>根本性的能指 (Master Signifier)</b>,它代表了</b>符号秩序</b>的法则和权威。它的功能是将意义网络锚定下来,阻止能指的无限滑动,从而建立一个相对稳定的现实感。它将</b>欲望</b>置于法则之下。</p><h3>详细举例</h3><p>在俄狄浦斯情结中,“父亲”的角色禁止了孩子与母亲的乱伦欲望,这个“不！”就是父之名的原型。它不指代真实的父亲,而是指代“父亲的功能”——即引入社会法则,将孩子从与母亲的二元关系中分离出来,带入更广阔的符号世界。</p><h3>核心功能/作用</h3><ul><li><b>意义的锚点:</b> 它是符号网络中的“纽结”,没有它,整个意义结构就会崩溃。</li><li><b>法则的化身:</b> 象征着社会禁令和法则的引入,即象征性阉割。</li></ul><h3>常见误解/补充说明</h3><p><b>补充:</b> 对“父之名”的<b>排除 (Foreclosure)</b> 是</b>精神病</b>结构的成因。对它的<b>压抑 (Repression)</b> 则是</b>神经症</b>的特征。</p>"
+            },
+            "symptom": {
+                name: "症候 (Symptom)",
+                content: "<h2>症候 (Symptom)</h2><p>一个携带了被压抑的真理的<b>密码化信息</b>。它是一种妥协形成,既表达了</b>主体</b>被禁止的</b>欲望</b>,又以一种扭曲的方式惩罚了这种欲望。在后期理论中,症候更被看作是主体组织其</b>享乐</b>的独特方式,是</b>实在界</b>的硬核。</p><h3>详细举例</h3><p>弗洛伊德的病人“朵拉”的咳嗽,既是对她不愿承认的口欲的象征性表达,也是对这种欲望的自我惩罚。在更广泛的意义上,一个人反复陷入失败的恋情,这种重复模式就是一种症候,其中凝结了他/她关于爱、欲望和享乐的无意识信念。</p><h3>核心功能/作用</h3><ul><li><b>真理的载体:</b> 症候是通往主体无意识真理的“皇家大道”。</li><li><b>享乐的模式:</b> 症候是主体赖以生存的、必不可少的享乐方式,即使它带来痛苦。</li></ul><h3>常见误解/补充说明</h3><p><b>补充:</b> 精神分析的目标不是“消除”症候,而是帮助主体理解其症候的意义,并“认同”于它,即学会与自己独特的享乐方式共存。</p>"
+            },
+            "masters-discourse": {
+                name: "主人话语 (Master's Discourse)",
+                content: "<h2>主人话语 (Master's Discourse)</h2><p>这是四种话语中最基本、最原始的模式,代表着权力和统治。其结构是 S1 → S2,即<b>主人能指 (S1)</b> 对<b>知识 (S2)</b> 发号施令,试图让知识为自己的意志服务,但这个过程总是产生一个剩余物——</b>对象a</b>。</p><h3>详细举例</h3><p>一个专制的君主或CEO发布命令(“建造金字塔！”或“本季度利润翻倍！”),他并不关心具体如何实现(知识S2),他只关心意志的贯彻。这个过程压榨出了劳动者的剩余价值或生命力(对象a),同时将</b>分裂的主体 ($)</b> 隐藏在真理的位置。</p><h3>核心功能/作用</h3><ul><li><b>建立秩序:</b> 通过一个专断的、无意义的命令来创造一个新的意义领域。</li><li><b>权力的运作:</b> 揭示了权力运作的基本逻辑:意志凌驾于知识之上。</li></ul><h3>常见误解/补充说明</h3><p><b>补充:</b> 这是所有其他话语的起源,其他话语都是对主人话语进行四分之一旋转后产生的变体。</p>"
+            },
+            "universitys-discourse": {
+                name: "大学话语 (University's Discourse)",
+                content: "<h2>大学话语 (University's Discourse)</h2><p>这是知识伪装成中立、客观权威的话语模式。其结构是 S2 → a,即<b>知识 (S2)</b> 被置于主导地位,对<b>对象 (a)</b> 进行教育、规训和生产。但其背后隐藏的真理是<b>主人能指 (S1)</b>。</p><h3>详细举例</h3><p>现代官僚体系、科学主义和某些形式的教育都是大学话语。例如,一个教授(S2)向学生(a)传授知识,试图将他们塑造成合格的社会成员。但这些知识并非中立,它服务于一个隐藏的意识形态或权力意志(S1),比如国家或资本的需求。</p><h3>核心功能/作用</h3><ul><li><b>知识的统治:</b> 揭示了知识如何成为一种统治工具,而非纯粹的启蒙。</li><li><b>意识形态的载体:</b> 这是</b>意识形态</b>最常见的运作模式。</li></ul><h3>常见误解/补充说明</h3><p><b>补充:</b> 大学话语的特点是它掩盖了其背后的权力意志,将统治呈现为“客观规律”或“专业知识”。</p>"
+            },
+            "hysterics-discourse": {
+                name: "癔症话语 (Hysteric's Discourse)",
+                content: "<h2>癔症话语 (Hysteric's Discourse)</h2><p>这是质疑和挑战权威的话语模式。其结构是 $ → S1,即<b>分裂的主体 ($)</b> 作为行动者,不断地向<b>主人 (S1)</b> 提问,要求他生产出能够解释主体分裂和欲望的<b>知识 (S2)</b>。</p><h3>详细举例</h3><p>学生向老师提问,挑战现有知识体系；抗议者向政府质问,要求其给出合理解释；弗洛伊德的女病人(癔症患者)通过她们的</b>症候</b>向医生提问,迫使弗洛伊德创立了精神分析这门新知识。科学研究的本质也是癔症式的,它不断地质问自然(主人),以期生产出新的知识。</p><h3>核心功能/作用</h3><ul><li><b>知识的催产婆:</b> 癔症话语通过不断地提问和挑战,迫使新的知识产生。</li><li><b>反抗的模式:</b> 这是主体反抗和质疑权力统治的基本方式。</li></ul><h3>常见误解/补充说明</h3><p><b>补充:</b> 癔症者看似软弱,实则占据了主动,因为是她的提问在驱动整个话语的运转。</p>"
+            },
+            "analysts-discourse": {
+                name: "分析家话语 (Analyst's Discourse)",
+                content: "<h2>分析家话语 (Analyst's Discourse)</h2><p>这是精神分析的话语,也是唯一旨在颠覆其他话语模式的话语。其结构是 a → $,即<b>分析家</b>占据了</b>对象a</b> 的位置,作为被分析者</b>欲望</b>的诱因,从而让<b>分裂的主体 ($)</b> 能够说出他自己的真理,即他被压抑的<b>主人能指 (S1)</b>。</p><h3>详细举例</h3><p>在精神分析诊疗中,分析家保持沉默和中立,不以知识权威(大学话语)或权力(主人话语)的形象出现。他让自己成为一个“欲望的空白屏幕”(对象a),从而激发被分析者(癔症话语的提问者)自由联想,最终说出构成其</b>症候</b>核心的无意识能指(S1)。</p><h3>核心功能/作用</h3><ul><li><b>真理的揭示:</b> 旨在让主体自己生产出关于自身欲望的真理,而不是从外部灌输。</li><li><b>话语的颠覆:</b> 通过将欲望的原因(a)置于主导地位,它颠覆了以统治和知识为核心的传统社会链接。</li></ul><h3>常见误解/补充说明</h3><p><b>补充:</b> 分析家话语的目标是让主体最终能够“穿越幻象”,认识到其欲望是由一个偶然的、无意义的对象a所支撑的。</p>"
+            }
+
+            // --- ↑↑↑ 将AI生成的【概念代码块】粘贴到这里 ↑↑↑ ---
+
+        },
+        
+        // ==================================================================
+        // [区域 B]: 连接点 (Connection Points)
+        // ==================================================================
+        // 此处定义了概念之间的“连接关系”和对应的阐释。
+        // 格式: { title: "连接标题",concepts: ["id1", "id2"], html: `HTML内容` }
+        // 注意: 每个连接点块之间需要用逗号 , 隔开。
+        // ==================================================================
+        connectionPoints: [
+
+            // --- ↓↓↓ 将AI生成的【连接点代码块】粘贴到这里 ↓↓↓ ---
+
+            // 示例 (您可以删除或保留此示例):
+            {
+                title: "大他者与主体",
+                type: "概念关联", // <--- 在这里添加关联类型
+                concepts: ["big-other", "subject-split"],
+                html: "<h4>大他者是欲望的定位器</h4><p>主体的欲望总是在追问“大他者想要什么？”的过程中形成的,大他者为主体的欲望提供了方向和坐标。</p>"
+            },
+            {
+                title: "抑郁与意义框架",
+                type: "概念关联", // <--- 在这里添加关联类型
+                concepts: ["depressive-structure", "big-other", "subject-split", "desire", "symbolic"],
+                html: "<h4>意义坐标系的崩塌</h4><p>抑郁的结构源于作为意义担保者的<b>大他者</b>功能失效,导致<b>主体</b>陷入瘫痪,其<b>欲望</b>和行动因<b>符号秩序</b>的瓦解而全面悬置。</p>"
+            },
+            {
+                title: "意识形态与享乐",
+                type: "概念关联", // <--- 在这里添加关联类型
+                concepts: ["ideology", "jouissance"],
+                html: "<h4>意识形态组织享乐</h4><p>意识形态通过规定社会认可的享乐模式,将主体束缚在现有的社会体系之内,确保权力结构的稳定再生产。</p>"
+            },
+            {
+                title: "欲望的本质",
+                type: "概念关联", // <--- 在这里添加关联类型
+                concepts: ["desire", "big-other", "symbolic", "subject-split"],
+                html: "<h4>欲望是对他者之欲望的欲望</h4><p>欲望本质上并非对具体事物的需求,而是渴望被<b>大他者</b>所承认和欲望。它由<b>符号秩序</b>塑造,是<b>分裂的主体</b>存在的根本驱动力。</p>"
+            },
+            {
+                title: "幻象的功能",
+                type: "概念关联", // <--- 在这里添加关联类型
+                concepts: ["fantasy", "desire", "big-other", "real"],
+                html: "<h4>幻象构建现实</h4><p>幻象是主体为组织其<b>欲望</b>、掩盖<b>大他者</b>的内在矛盾以及抵御<b>实在界</b>创伤而构建的无意识叙事框架。</p>"
+            },
+            {
+                title: "符号秩序与主体及实在界",
+                type: "概念关联", // <--- 在这里添加关联类型
+                concepts: ["symbolic", "subject-split", "real"],
+                html: "<h4>符号秩序的建构与局限</h4><p><b>主体</b>通过被纳入符号秩序而诞生,但符号秩序无法覆盖一切,其漏洞和外部即是<b>实在界</b>。</p>"
+            },
+            {
+                title: "实在界的显现",
+                type: "概念关联", // <--- 在这里添加关联类型
+                concepts: ["real", "symbolic", "jouissance", "desire"],
+                html: "<h4>实在界:抵抗符号化之物</h4><p>实在界是<b>符号秩序</b>无法捕捉的创伤性内核,它以极度的<b>享乐</b>形式显现,同时也是<b>欲望</b>产生的根源(被符号秩序挖出的空洞)。</p>"
+            },
+            {
+                title: "主体的分裂与欲望",
+                type: "概念关联", // <--- 在这里添加关联类型
+                concepts: ["subject-split", "symbolic", "desire"],
+                html: "<h4>分裂是欲望的引擎</h4><p>主体在进入<b>符号秩序</b>时必然经历分裂和匮乏,正是这种匮乏感,才驱动主体产生永不满足的<b>欲望</b>。</p>"
+            },
+            {
+                title: "享乐的根源与形式",
+                type: "概念关联", // <--- 在这里添加关联类型
+                concepts: ["jouissance", "subject-split", "real", "symptom"],
+                html: "<h4>享乐:痛苦的快感</h4><p>享乐是<b>分裂的主体</b>在触及<b>实在界</b>时的创伤性体验,它常常以<b>症候</b>的形式被组织和呈现。</p>"
+            },
+            {
+                title: "对象a:欲望与幻象的核心",
+                type: "概念关联", // <--- 在这里添加关联类型
+                concepts: ["objet-a", "desire", "subject-split", "real", "fantasy"],
+                html: "<h4>对象a是欲望的原因</h4><p>对象a是<b>主体</b>匮乏的体现,是<b>实在界</b>的残余。它作为诱因点燃了<b>欲望</b>,而<b>幻象</b>的叙事正是围绕它而展开。</p>"
+            },
+            {
+                title: "神经症的结构",
+                type: "概念关联", // <--- 在这里添加关联类型
+                concepts: ["neurosis", "name-of-the-father", "symbolic", "desire", "jouissance", "symptom", "fantasy", "big-other"],
+                html: "<h4>神经症:与大他者协商</h4><p>神经症主体接受了<b>父之名</b>进入<b>符号秩序</b>,但仍不断通过<b>症候</b>和<b>幻象</b>来处理关于自身<b>欲望</b>和<b>享乐</b>的问题,其根源在于假定存在一个完整且苛求的<b>大他者</b>。</p>"
+            },
+            {
+                title: "精神病的结构",
+                type: "概念关联", // <--- 在这里添加关联类型
+                concepts: ["psychosis", "name-of-the-father", "symbolic", "real", "big-other"],
+                html: "<h4>精神病:父之名的排除</h4><p>由于关键能指<b>父之名</b>被排除在<b>符号秩序</b>之外,导致其意义世界出现漏洞,被排除的内容从<b>实在界</b>以幻觉和妄想的形式回归,并伴随着一个要求享乐的<b>大他者</b>。</p>"
+            },
+            {
+                title: "倒错的结构",
+                type: "概念关联", // <--- 在这里添加关联类型
+                concepts: ["perversion", "big-other", "jouissance", "objet-a"],
+                html: "<h4>倒错:成为他者享乐的工具</h4><p>倒错者将自己或他人置于<b>对象a</b>的位置,致力于成为实现<b>大他者</b>之<b>享乐</b>的工具,从而否认了法则对自身的限制。</p>"
+            },
+            {
+                title: "父之名的功能",
+                type: "概念关联", // <--- 在这里添加关联类型
+                concepts: ["name-of-the-father", "symbolic", "desire", "psychosis", "neurosis"],
+                html: "<h4>父之名:意义的锚点</h4><p>父之名作为根本性能指,将<b>符号秩序</b>锚定下来,使<b>欲望</b>服从于法则。对它的排除导致<b>精神病</b>,而对它的压抑则形成<b>神经症</b>。</p>"
+            },
+            {
+                title: "症候:真理与享乐的载体",
+                type: "概念关联", // <--- 在这里添加关联类型
+                concepts: ["symptom", "subject-split", "desire", "jouissance", "real"],
+                html: "<h4>症候是享乐的模式</h4><p>症候既是<b>主体</b>被压抑的<b>欲望</b>的密码化信息,也是主体组织其<b>享乐</b>的独特方式,是<b>实在界</b>硬核的体现。</p>"
+            },
+            {
+                title: "主人话语的运作",
+                type: "概念关联", // <--- 在这里添加关联类型
+                concepts: ["masters-discourse", "objet-a", "subject-split"],
+                html: "<h4>主人话语:权力的原初模式</h4><p>主人话语通过意志(S1)对知识(S2)发号施令,这个过程必然产生剩余物<b>对象a</b>,并将<b>分裂的主体($)</b>置于被压抑的真理位置。</p>"
+            },
+            {
+                title: "大学话语与意识形态",
+                type: "概念关联", // <--- 在这里添加关联类型
+                concepts: ["universitys-discourse", "ideology"],
+                html: "<h4>大学话语:知识的统治</h4><p>大学话语将知识置于统治地位,但其背后总是服务于一个隐藏的主人意志(S1),是<b>意识形态</b>最常见的运作模式。</p>"
+            },
+            {
+                title: "癔症话语与症候",
+                type: "概念关联", // <--- 在这里添加关联类型
+                concepts: ["hysterics-discourse", "symptom"],
+                html: "<h4>癔症话语:知识的催产婆</h4><p>分裂的主体($)通过其<b>症候</b>向主人(S1)发出提问,不断挑战现有权威,从而迫使新知识(S2)的产生。</p>"
+            },
+            {
+                title: "分析家话语的颠覆性",
+                type: "概念关联", // <--- 在这里添加关联类型
+                concepts: ["analysts-discourse", "objet-a", "desire", "symptom"],
+                html: "<h4>分析家话语:穿越幻象</h4><p>分析家占据<b>对象a</b>的位置,成为被分析者<b>欲望</b>的诱因,旨在让主体自己生产出其<b>症候</b>背后的真理(S1),从而颠覆其他话语模式。</p>"
+            },
+            {
+                title: "符号秩序与大他者:结构性构成",
+                type: "概念关联", // <--- 在这里添加关联类型
+                concepts: ["symbolic", "big-other"],
+                html: "<h4>相互定义:同一硬币的两面</h4><p><b>理论阐释:</b> 符号秩序构成了我们经验世界的语言、法律和社会结构。大他者是该秩序的象征性载体和保证者。符号秩序的功能依赖于大他者所代表的规范体系,而大他者则通过构成这个符号结构来获得其“权威性”。</p><p><b>当代案例:</b> 互联网及其协议、算法和社群规则,作为一个庞大的符号网络,充当了现代社会的一个“大他者”,塑造着我们的语言、行为和身份认同。</p>"
+            },
+            {
+                title: "主体的分裂:进入符号秩序的代价",
+                type: "概念关联", // <--- 在这里添加关联类型
+                concepts: ["subject-split", "symbolic"],
+                html: "<h4>成因与后果:分裂的根源</h4><p><b>理论阐释:</b> 主体进入符号秩序(语言、社会规范)的过程必然是一种内在的断裂。语言构成了主体,但也使其永远无法完全表达自身的存在,从而导致主体($)在其符号化身份背后永远存在一个“缺失”的部分。</p><p><b>当代案例:</b> 社交媒体上的“人设”与真实自我之间的鸿沟。个体在网络符号秩序中构建的形象,与其无法被完全捕捉的内在感受之间存在着裂痕,这正是主体分裂的体现。</p>"
+            },
+            {
+                title: "欲望与对象a:永动的引擎",
+                type: "概念关联", // <--- 在这里添加关联类型
+                concepts: ["desire", "objet-a"],
+                html: "<h4>动态循环:欲望的原因</h4><p><b>理论阐释:</b> 欲望由根本性的“缺失”驱动,而对象a正是这个欲望的“原因”。它不是欲望的目标,而是那个不断唤起并维持欲望的、稍纵即逝的“剩余”对象。主体对它的永恒追逐构成了欲望的持续动力。</p><p><b>当代案例:</b> 对“新奇特”科技产品的无尽追求。每次新品发布都承诺带来终极满足(对象a的幻影),但一旦获得,满足感便迅速消退,欲望立刻转向下一个目标。</p>"
+            },
+            {
+                title: "精神病:父之名的缺失",
+                type: "概念关联", // <--- 在这里添加关联类型
+                concepts: ["name-of-the-father", "psychosis"],
+                html: "<h4>结构性缺失的后s果</h4><p><b>理论阐释:</b> 在精神病结构中,“父之名”(象征社会法则与秩序)被“前置”(foreclosure),即未能被主体有效内化。这导致主体与符号秩序和共同现实的联系发生断裂,并通过幻觉或妄想来试图补偿这种象征性法则的缺失。</p><p><b>当代案例:</b> 某些极端阴谋论信奉者构建的封闭“真相”体系。他们彻底排斥社会公认的象征性权威(科学事实、历史叙事),可被视为“父之名”的象征性前置。</p>"
+            },
+            {
+                title: "享乐与实在界:符号秩序的边界",
+                type: "概念关联", // <--- 在这里添加关联类型
+                concepts: ["jouissance", "real"],
+                html: "<h4>动态张力:过度的快感</h4><p><b>理论阐释:</b> 享乐是超越快感原则的、痛苦的过度享受,它与抵抗符号化的、创伤性的实在界紧密相连。实在界中的享乐不断渗透和溢出符号秩序的限制,以症候或强迫性重复的形式显现。</p><p><b>当代案例:</b> 对高难度电子游戏(如魂系列)的沉迷。玩家在经历大量挫折和痛苦中获得的“少量”成功,恰是一种“享乐”——它触及了游戏规则的冰冷实在,是一种令人不安但又难以放弃的投入。</p>"
+            },
+            {
+            title: "机制A：意识形态的引擎",
+            type: "概念关联", // <--- 在这里添加关联类型
+                concepts: ["ideology", "fantasy", "jouissance"],
+            html: "<h4>幻象与享乐如何支撑意识形态</h4><p><b>理论阐释:</b> 意识形态通过提供一个特定的<b>幻象</b>框架来发挥作用，该框架教会我们如何欲望，从而使现实的矛盾变得可忍受。维系我们对这个幻象的依恋的，正是<b>享乐 (jouissance)</b>——一种隐藏在意识形态指令背后的、过度的、甚至是痛苦的快感。我们服从意识形态，是因为我们从这种服从及其幻象中，秘密地获得了某种享乐。</p><p><b>当代案例:</b> “内卷”文化下的“奋斗逼”心态。其意识形态是成功学叙事，<b>幻象</b>是“只要我牺牲一切去努力就能超越阶级”。而支撑这一幻象的<b>享乐</b>，并非来自成功，而是来自“将自己推向极限”过程中的受虐般的快感、自我感动和在竞争中确认自身“在努力”的优越感。这种“享受痛苦”的快感，是将主体牢牢锁定在内卷意识形态中的真正燃料。</p>"
+            },
+            {
+            title: "机制B：症候的起源",
+            type: "概念关联", // <--- 在这里添加关联类型
+                concepts: ["real", "symbolic", "symptom"],
+            html: "<h4>实在界创伤的回归</h4><p><b>理论阐释:</b> <b>实在界</b>是原始的、无法被言说的创伤性领域。<b>符号秩序</b>试图通过命名来覆盖和驯服它，但总有无法被符号化的残余。<b>症候</b>正是这个失败的产物：它是<b>实在界</b>的创伤性内核以一种扭曲、加密的形式在<b>符号秩序</b>内部的“回归”。它是一个携带了实在界真理的、个体化的象征符号。</p><p><b>当代案例:</b> 社交媒体时代的“容貌焦虑”。<b>实在界</b>是会衰老、有瑕疵的真实身体。<b>符号秩序</b>是社交媒体上由滤镜和算法构建的“完美”容貌标准。而个体的容貌焦虑、对特定身体部位的强迫性关注等，就是<b>症候</b>——它是真实的身体与符号化的完美标准之间无法弥合的裂痕所爆发出的痛苦信号。</p>"
+            },
+            {
+            title: "机制C：欲望的永动",
+            type: "概念关联", // <--- 在这里添加关联类型
+                concepts: ["subject-split", "desire", "fantasy", "objet-a"],
+            html: "<h4>欲望为何永不满足</h4><p><b>理论阐释:</b> <b>主体的分裂($)</b> 产生了根本的“匮乏”，这催生了<b>欲望</b>。为给漫无目的的欲望提供剧本，<b>幻象</b>应运而生，其核心正是那个闪闪发光的诱饵——<b>对象a</b>。主体追逐的并非对象本身，而是那个由对象所承诺的、能填补匮乏的幻象。但<b>对象a</b>本质上是不可获得的，因此每一次“成功”都必然导向失望，并重新启动整个欲望循环。</p><p><b>当代案例:</b> 对“财务自由”的执念。<b>主体的分裂</b>是现代人的普遍不安全感。由此产生的<b>欲望</b>是对“最终安宁”的渴求。<b>幻象</b>是“赚到X数额的钱就能获得绝对幸福”。在这个幻象中，具体的金钱数额就是<b>对象a</b>，一个被赋予了魔力的“圣杯”。即便有人达到目标，匮乏感依然存在，因为<b>对象a</b>的真正功能从来不是被“获得”，而是让欲望的机器持续运转。</p>"
+            },
+            {
+            title: "主题A：话语的循环与变革",
+            type: "主题", // <--- 在这里添加关联类型
+                concepts: ["masters-discourse", "hysterics-discourse", "universitys-discourse"],
+            html: "<h4>一个社会和知识变革的循环模型</h4><p><b>理论阐释:</b><br/><b>1. 起始点 (主人话语):</b> 社会由一个主导性的主人能指(S1)统治，产生一套知识(S2)。<br/><b>2. 转折点 (癔症话语):</b> 被压抑的主体($)以“癔症”的方式质问主人(S1)，迫使其产出新知识来回应质疑。<br/><b>3. 收编点 (大学话语):</b> 革命性的新知识被系统化、客观化，成为教育和规训主体(a)的新知识权力结构。<br/><b>4. 循环再生:</b> 大学话语最终固化并提炼出一个新的主人能指(S1)，开启新一轮循环。</p><p><b>当代案例 (环保话语的演变):</b><br/><b>主人话语:</b> 最初是“无限经济增长”的资本主义话语。<br/><b>癔症话语:</b> 环保运动家质问：“你们的‘增长’正在毁灭我们的星球！”<br/><b>大学话语:</b> 激进抗议被收编为“环境科学”、“可持续发展研究”等学科，政治诉求被转化为个人化的行为规范（如垃圾分类）。<br/><b>新的主人话语:</b> “可持续性”、“绿色资本主义”成为新的主人能指，被跨国公司用来建立新的市场规则，循环继续。</p>"
+            },
+            {
+            title: "主题B：当代精神困境的诊断",
+            type: "主题", // <--- 在这里添加关联类型
+                concepts: ["big-other", "ideology", "objet-a", "depressive-structure"],
+            html: "<h4>一种后现代精神病理学诊断</h4><p><b>理论阐释 (结构性因果链):</b><br/><b>1. 前提 (大他者的衰落):</b> 传统象征性权威（宗教、国家）失效，导致深刻的迷失感。<br/><b>2. 填补 (消费主义意识形态):</b> 以“享乐吧！”的命令填补大他者留下的空洞，许诺通过消费获得满足。<br/><b>3. 机制 (对象a的泛滥):</b> 市场将每样商品和体验都包装成能填补内心空虚的<b>对象a</b>，不断制造新的欲望。<br/><b>4. 后果 (抑郁的结构):</b> 当欲望被无尽的“享乐”命令淹没，主体在追逐无数<b>对象a</b>的过程中耗尽精力，最终导致欲望衰竭和行动力瘫痪，这正是当代抑郁的深层结构。</p><p><b>当代案例 (内卷与燃尽):</b><br/><b>大他者衰落:</b> “努力就能成功”的传统承诺失效。<br/><b>消费主义意识形态:</b> 出路被导向“自我提升”式消费和“体验式”消费。<br/><b>对象a泛滥:</b> 一个更高的绩点、更光鲜的实习、获高赞的旅行照，都成了被疯狂追逐的<b>对象a</b>。<br/><b>抑郁结构:</b> 主体在“军备竞赛”式的内卷中追逐这些<b>对象a</b>，最终导致欲望燃尽(burnout)，表现为“躺平”、“摆烂”，这是对那个“必须成功/必须享乐”的命令的消极抵抗。</p>"
+            },
+            {
+            title: "现象：互联网上的男女对立",
+            type: "现象分析", // <--- 在这里添加关联类型
+                concepts: ["big-other", "desire", "jouissance"],
+            html: "<h4>大他者失效下的攻击性享乐</h4><p><b>理论阐释:</b> 当传统的<b>大他者</b>（如统一的道德叙事）在互联网空间失效，稳定的两性关系符号秩序随之崩塌。这导致两性间的<b>欲望</b>失去象征性框架而发生错位，转化为偏执的质问。由于无法在符号层面获得满足，主体转向一种前符号的、更为暴力的攻击性<b>享乐</b>，通过辱骂和贬低对方群体来填补意义真空。</p><p><b>当代案例:</b> 互联网上的“男拳”与“女拳”骂战。双方并非有效沟通，而是通过攻击对方的“稻草人”形象来巩固自身认同。真正的“胜利”并非道理上的说服，而是看到对方“破防”时所获得的、混杂着痛苦和快感的<b>享乐</b>，这成为了比建立共识更有吸引力的驱动力。</p>"
+            },
+            {
+            title: "现象：网络社群中的表演式反串",
+            type: "现象分析", // <--- 在这里添加关联类型
+                concepts: ["fantasy", "subject-split", "objet-a"],
+            html: "<h4>为捕获“注视”而搭建的幻象舞台</h4><p><b>理论阐释:</b> “一眼假”的反串是一种精心构建的<b>幻象</b>，它利用并暴露了<b>主体的分裂($)</b>——表演者和观众都清楚表演者与角色间的鸿沟。其最终目的，是为了捕获那个难以捉摸的<b>对象a</b>，即他人的“注视”或“反应”。无论是敌方的愤怒还是己方的会心一笑，这种被“看到”的反应本身，就是支撑这场幻象表演的欲望诱因。</p><p><b>当代案例:</b> 在游戏论坛，一位用户用夸张的“饭圈女孩”口吻发帖吹捧游戏角色。所有人都知道这是反串，但它成功制造了话题。发帖者从中获得的，正是其他用户或惊讶、或愤怒、或被逗乐的“回应”，这个“回应”本身就是他渴望的<b>对象a</b>。</p>"
+            },
+            {
+            title: "现象：反串中的羞辱与“赢”的逻辑",
+            type: "现象分析", // <--- 在这里添加关联类型
+                concepts: ["jouissance", "symptom", "masters-discourse"],
+            html: "<h4>网络暴力中“胜利”的症候化</h4><p><b>理论阐释:</b> 在网络对立中，揭穿并羞辱对方的“反串”行为，能带来一种破坏性的<b>享乐</b>。当这种行为被强迫性地重复，就固化为主体的一种<b>症候</b>——一种组织自身享乐的独特方式。在此基础上，社群内部逐渐形成了一种新的<b>主人话语</b>变体：“赢”成为了唯一的、不容置疑的核心能指，它合法化了所有寻找和制造享乐的攻击行为。</p><p><b>当代案例:</b> 在网络论战中，一方“证实”对方是“反串”后，便发动群组进行集中嘲讽和人身攻击。这个“揭穿-羞辱”的过程为参与者提供了强烈的<b>享乐</b>。“不问对错，只求‘赢’下这场舆论战”的心态，就是网络暴力中<b>主人话语</b>的运作方式。</p>"
+            },
+            {
+            title: "现象：消费主义下的“选择自由”",
+            type: "现象分析", // <--- 在这里添加关联类型
+                concepts: ["big-other", "desire", "depressive-structure"],
+            html: "<h4>欲望过剩与主体的瘫痪</h4><p><b>理论阐释:</b> 当代消费主义社会中，传统<b>大他者</b>提供的统一意义变得空洞化，取而代之的是“尽情选择！”的悖论式命令。这导致<b>欲望</b>不再被压抑而是被过度生产。主体面对无穷选择，却发现没有一个能填补存在性匮乏，最终导致欲望自身的内爆和衰竭。这种“我什么都可以做，但做什么都没意义”的瘫痪状态，正是<b>抑郁的结构</b>的核心。</p><p><b>当代案例:</b> 年轻人面临消费文化展示的无限可能性与“内卷”的残酷现实之间的矛盾。任何选择都显得沉重而无意义，追求各种“小确幸”也无法缓解深层焦虑。一部分人选择“躺平”，这并非简单的懒惰，而是在<b>欲望</b>过剩和意义真空下的一种典型的抑郁性撤退。</p>"
+            },
+            {
+            title: "现象：网络社群中的身份政治",
+            type: "现象分析", // <--- 在这里添加关联类型
+                concepts: ["name-of-the-father", "symbolic", "psychosis", "perversion"],
+            html: "<h4>象征法则缺席下的另类秩序</h4><p><b>理论阐释:</b> 在某些极端网络社群中，保证<b>符号秩序</b>统一性的<b>父之名</b>被“前置”（彻底排除）。为填补空洞，社群会自行“发明”一个新的法则（如绝对化的身份认同）来重构<b>符号秩序</b>。这种结构类似于临床上的<b>精神病</b>（对内坚信不疑，视外部为迫害者），或是一种<b>倒错</b>结构（明知外部法则，却将自己法则奉为更高级的真理，并从逾越中获得享乐）。</p><p><b>当代案例:</b> 某些极端的“饭圈”社群。他们有严格的等级、独特的“黑话”和不容置疑的教条，创造了一个与外部平行的<b>符号秩序</b>。对于任何批评，他们的反应不是辩论，而是将其定性为恶意攻击并进行“出征”。这种将自身逻辑绝对化、无法与他者建立共享象征空间的行为，深刻体现了<b>父之名</b>缺席后的集体症候。</p>"
+            }
+
+            // --- ↑↑↑ 将AI生成的【连接点代码块】粘贴到这里 ↑↑↑ ---
+
+        ]
+    };
+
+    // ==================================================================
+    // [区域 C]: 核心渲染逻辑
+    // ==================================================================
+    // 以下是驱动整个网页工作的核心代码。
+    // 通常情况下,您完全不需要修改这部分内容。
+    // ==================================================================
+    document.addEventListener('DOMContentLoaded', () => {
+        const map = document.getElementById('rhizome-map');
+        const svg = document.getElementById('connections');
+        const infoPanel = document.getElementById('info-panel');
+        const panelContent = document.getElementById('panel-content');
+        const closeBtn = document.querySelector('.close-btn');
+        const allConcepts = { ...theoryData.concepts };
+        const allConnections = buildConnections(allConcepts, theoryData.connectionPoints);
+        const typeNodesContainer = document.getElementById('type-nodes-container');
+        const connectionTypes = new Map();
+        theoryData.connectionPoints.forEach(p => {
+            if (!p.type) return;
+            if (!connectionTypes.has(p.type)) {
+                connectionTypes.set(p.type, []);
+            }
+            connectionTypes.get(p.type).push(p);
+        });
+
+        connectionTypes.forEach((points, type) => {
+            const typeNode = document.createElement('div');
+            typeNode.className = 'type-node';
+            typeNode.textContent = type;
+            typeNode.addEventListener('click', () => showTypePanel(type, points));
+            typeNodesContainer.appendChild(typeNode);
+        });
+        Object.keys(allConcepts).forEach((key, index) => {
+            const node = document.createElement('div');
+            node.className = 'node';
+            node.id = key;
+            node.textContent = allConcepts[key].name;
+            const angle = (index / Object.keys(allConcepts).length) * 2 * Math.PI;
+            const radius = Math.min(window.innerWidth, window.innerHeight) * 0.42;
+            node.style.left = `${window.innerWidth / 2 + radius * Math.cos(angle) - 75}px`;
+            node.style.top = `${window.innerHeight / 2 + radius * Math.sin(angle) - 20}px`;
+            map.appendChild(node);
+        });
+
+        const nodes = document.querySelectorAll('.node');
+        let activeNode = null, isDragging = false, offset = { x: 0, y: 0 };
+
+        function drawConnections() {
+            svg.innerHTML = '';
+            const drawn = new Set();
+            Object.keys(allConnections).forEach(key => {
+                const startNode = document.getElementById(key);
+                if (!startNode) return;
+                const startRect = startNode.getBoundingClientRect();
+                allConnections[key].forEach(connKey => {
+                    const pair = [key, connKey].sort().join('-');
+                    if (drawn.has(pair)) return;
+                    const endNode = document.getElementById(connKey);
+                    if (endNode) {
+                        const endRect = endNode.getBoundingClientRect();
+                        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                        line.setAttribute('x1', startRect.left + startRect.width / 2);
+                        line.setAttribute('y1', startRect.top + startRect.height / 2);
+                        line.setAttribute('x2', endRect.left + endRect.width / 2);
+                        line.setAttribute('y2', endRect.top + endRect.height / 2);
+                        line.dataset.start = key; line.dataset.end = connKey;
+                        svg.appendChild(line);
+                        drawn.add(pair);
+                    }
+                });
+            });
+        }
+        function showTypePanel(type, points) {
+            document.querySelector('.node.active')?.classList.remove('active');
+            document.querySelectorAll('#connections line.highlight').forEach(l => l.classList.remove('highlight'));
+
+            let contentHTML = `<h2>关联类型: <span style="color: var(--node-border);">${type}</span></h2>`;
+            
+            points.forEach(p => {
+                const conceptsInvolved = p.concepts
+                    .map(c => allConcepts[c] ? `<span class="internal-link" data-target="${c}">${allConcepts[c].name}</span>` : '')
+                    .join(' & ');
+
+                contentHTML += `<div class="connection-point">
+                    <div class="meta">主题: <span>${p.title}</span><br>核心概念: ${conceptsInvolved}</div>
+                    ${p.html}
+                </div>`;
+            });
+
+            panelContent.innerHTML = contentHTML;
+            infoPanel.classList.add('visible');
+            infoPanel.scrollTop = 0;
+
+            panelContent.querySelectorAll('.internal-link').forEach(link => {
+                link.addEventListener('click', (e) => showPanel(e.target.dataset.target));
+            });
+        }
+
+        function showPanel(key) {
+            document.querySelector('.node.active')?.classList.remove('active');
+            document.querySelectorAll('#connections line.highlight').forEach(l => l.classList.remove('highlight'));
+            
+            const node = document.getElementById(key);
+            if (!node) return;
+            node.classList.add('active');
+            
+            document.querySelectorAll(`#connections line[data-start="${key}"], #connections line[data-end="${key}"]`)
+                .forEach(l => l.classList.add('highlight'));
+
+            let contentHTML = allConcepts[key].content;
+            const relatedConnections = theoryData.connectionPoints.filter(p => p.concepts.includes(key));
+            
+            if (relatedConnections.length > 0) {
+                contentHTML += `<h3>动态连接点 / Dynamic Connections</h3>`;
+                relatedConnections.forEach(p => {
+                    const otherConcepts = p.concepts.filter(c => c !== key)
+                        .map(c => `<span class="internal-link" data-target="${c}">${allConcepts[c].name}</span>`).join(' & ');
+                    contentHTML += `<div class="connection-point">
+                        <div class="meta">主题: <span>${p.title}</span><br>关联类型: ${p.type || '未定义'}<br>核心关联: ${otherConcepts}</div>
+                        ${p.html}
+                    </div>`;
+                });
+            }
+            
+            panelContent.innerHTML = contentHTML;
+            infoPanel.classList.add('visible');
+            infoPanel.scrollTop = 0;
+            
+            panelContent.querySelectorAll('.internal-link').forEach(link => {
+                link.addEventListener('click', (e) => showPanel(e.target.dataset.target));
+            });
+        }
+
+        nodes.forEach(node => {
+            let dragCheck = false;
+            node.addEventListener('mousedown', (e) => {
+                dragCheck = false;
+                setTimeout(() => dragCheck = true, 200);
+                isDragging = true;
+                activeNode = node;
+                offset = { x: e.clientX - node.offsetLeft, y: e.clientY - node.offsetTop };
+                node.style.animation = 'none';
+            });
+            node.addEventListener('mouseup', () => {
+                if (activeNode) activeNode.style.animation = '';
+                isDragging = false;
+            });
+            node.addEventListener('click', () => { if (!dragCheck) showPanel(node.id); });
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (isDragging && activeNode) {
+                e.preventDefault();
+                activeNode.style.left = `${e.clientX - offset.x}px`;
+                activeNode.style.top = `${e.clientY - offset.y}px`;
+                drawConnections();
+            }
+        });
+
+        closeBtn.addEventListener('click', () => {
+            infoPanel.classList.remove('visible');
+            document.querySelector('.node.active')?.classList.remove('active');
+            document.querySelectorAll('#connections line.highlight').forEach(l => l.classList.remove('highlight'));
+        });
+
+        function buildConnections(concepts, points) {
+            const connections = {};
+            Object.keys(concepts).forEach(key => connections[key] = new Set());
+            points.forEach(p => {
+                for (let i = 0; i < p.concepts.length; i++) {
+                    for (let j = i + 1; j < p.concepts.length; j++) {
+                        connections[p.concepts[i]].add(p.concepts[j]);
+                        connections[p.concepts[j]].add(p.concepts[i]);
+                    }
+                }
+            });
+            Object.keys(connections).forEach(key => connections[key] = Array.from(connections[key]));
+            return connections;
+        }
+
+        setTimeout(drawConnections, 100);
+        window.addEventListener('resize', drawConnections);
+    });
+    </script>
 </body>
 </html>
