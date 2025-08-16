@@ -365,7 +365,7 @@
                 title: "精神病:父之名的缺失",
                 type: "概念关联", // <--- 在这里添加关联类型
                 concepts: ["name-of-the-father", "psychosis"],
-                html: "<h4>结构性缺失的后s果</h4><p><b>理论阐释:</b> 在精神病结构中,“父之名”(象征社会法则与秩序)被“前置”(foreclosure),即未能被主体有效内化。这导致主体与符号界和共同现实的联系发生断裂,并通过幻觉或妄想来试图补偿这种象征性法则的缺失。</p><p><b>当代案例:</b> 某些极端阴谋论信奉者构建的封闭“真相”体系。他们彻底排斥社会公认的象征性权威(科学事实、历史叙事),可被视为“父之名”的象征性前置。</p>"
+                html: "<h4>结构性缺失的后果</h4><p><b>理论阐释:</b> 在精神病结构中,“父之名”(象征社会法则与秩序)被“前置”(foreclosure),即未能被主体有效内化。这导致主体与符号界和共同现实的联系发生断裂,并通过幻觉或妄想来试图补偿这种象征性法则的缺失。</p><p><b>当代案例:</b> 某些极端阴谋论信奉者构建的封闭“真相”体系。他们彻底排斥社会公认的象征性权威(科学事实、历史叙事),可被视为“父之名”的象征性前置。</p>"
             },
             {
                 title: "享乐与实在界:符号界的边界",
@@ -500,11 +500,9 @@
             node.className = 'node';
             node.id = key;
             node.textContent = allConcepts[key].name;
-            const angle = (index / Object.keys(allConcepts).length) * 2 * Math.PI;
-            const radius = Math.min(window.innerWidth, window.innerHeight) * 0.42;
-            node.style.left = `${window.innerWidth / 2 + radius * Math.cos(angle) - 75}px`;
-            node.style.top = `${window.innerHeight / 2 + radius * Math.sin(angle) - 20}px`;
             map.appendChild(node);
+            updateLayout(); // 首次加载时调用
+            window.addEventListener('resize', updateLayout);
         });
 
         const nodes = document.querySelectorAll('.node');
@@ -534,6 +532,30 @@
                     }
                 });
             });
+        }
+        function repositionNodes() {
+            const nodes = document.querySelectorAll('.node');
+            const totalNodes = Object.keys(allConcepts).length;
+            const conceptKeys = Object.keys(allConcepts);
+
+            conceptKeys.forEach((key, index) => {
+                const node = document.getElementById(key);
+                if (!node) return;
+
+                const angle = (index / totalNodes) * 2 * Math.PI;
+                const radius = Math.min(window.innerWidth, window.innerHeight) * 0.38; // 稍微减小半径以避免边缘内容被裁切
+                const centerX = window.innerWidth / 2;
+                const centerY = window.innerHeight / 2;
+
+                // 使用 offsetWidth/Height 可以更精确地居中节点
+                node.style.left = `${centerX + radius * Math.cos(angle) - node.offsetWidth / 2}px`;
+                node.style.top = `${centerY + radius * Math.sin(angle) - node.offsetHeight / 2}px`;
+            });
+        }
+        function updateLayout() {
+            repositionNodes();
+            // 加一个短暂的延迟确保DOM更新后再绘制连线，避免闪烁
+            setTimeout(drawConnections, 50); 
         }
         function showTypePanel(type, points) {
             document.querySelector('.node.active')?.classList.remove('active');
@@ -653,4 +675,3 @@
     </script>
 </body>
 </html>
-
