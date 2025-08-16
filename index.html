@@ -594,14 +594,28 @@
 
         nodes.forEach(node => {
             let dragCheck = false;
+
+            // --- 鼠标事件处理 ---
             node.addEventListener('mousedown', (e) => {
-                dragCheck = false;
-                setTimeout(() => dragCheck = true, 200);
-                isDragging = true;
-                activeNode = node;
-                offset = { x: e.clientX - node.offsetLeft, y: e.clientY - node.offsetTop };
-                node.style.animation = 'none';
+                startDrag(e.clientX, e.clientY, node);
             });
+
+            // --- [新增] 触摸事件处理 ---
+            node.addEventListener('touchstart', (e) => {
+                // e.touches[0] 代表第一个触摸点
+                startDrag(e.touches[0].clientX, e.touches[0].clientY, node);
+            });
+            
+            // 抽象出一个启动函数，避免代码重复
+            function startDrag(clientX, clientY, targetNode) {
+                dragCheck = false;
+                setTimeout(() => dragCheck = true, 200); // 用于区分拖拽和点击
+                isDragging = true;
+                activeNode = targetNode;
+                offset = { x: clientX - targetNode.offsetLeft, y: clientY - targetNode.offsetTop };
+                targetNode.style.animation = 'none';
+            }
+
             node.addEventListener('click', () => { if (!dragCheck) showPanel(node.id); });
         });
 
